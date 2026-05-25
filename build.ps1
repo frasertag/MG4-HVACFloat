@@ -84,8 +84,8 @@ finally {
   --ks-key-alias platform `
   --ks-pass pass:android `
   --key-pass pass:android `
-  --out (Join-Path $dist "MG4-HVACFloat-V0.5.apk") `
+  --out (Join-Path $dist "MG4-HVACFloat-V0.4.apk") `
   (Join-Path $build "aligned.apk")
 
-& $apksigner verify --verbose (Join-Path $dist "MG4-HVACFloat-V0.5.apk")
-Get-Item (Join-Path $dist "MG4-HVACFloat-V0.5.apk")
+& $apksigner verify --verbose (Join-Path $dist "MG4-HVACFloat-V0.4.apk")
+Get-Item (Join-Path $dist "MG4-HVACFloat-V0.4.apk")

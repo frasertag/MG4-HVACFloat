@@ -67,13 +67,13 @@ Build from this directory:
 The build script outputs:
 
 ```text
-dist\MG4-HVACFloat-V0.5.apk
+dist\MG4-HVACFloat-V0.4.apk
 ```
 
 Latest named build:
 
 ```text
-dist\MG4-HVACFloat-V0.5.apk
+dist\MG4-HVACFloat-V0.4.apk
 ```
 
 ## Implementation Notes
