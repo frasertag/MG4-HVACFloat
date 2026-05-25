@@ -76,6 +76,8 @@ Latest named build:
 dist\MG4-HVACFloat-V0.4.apk
 ```
 
+GitHub releases attach the APK and matching `.sha256` checksum as release assets.
+
 ## Implementation Notes
 
 - Package: `com.custom.hvacfloater`
