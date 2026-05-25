@@ -1,0 +1,6 @@
+.gradle/
+build/
+app/build/
+dist/*
+!dist/MG4-HVACFloat-V*.apk
+local.properties
