@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -14,11 +15,14 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
+    private static final String PUBLISHED_VERSION = "Published version: 0.4.1";
+
     private SharedPreferences prefs;
     private TextView themeStatus;
     private TextView controlsStatus;
@@ -144,7 +148,26 @@ public class MainActivity extends Activity {
         rightColumn.addView(themeStatus);
         updateThemeStatus();
 
-        setContentView(root);
+        FrameLayout shell = new FrameLayout(this);
+        shell.addView(root, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+
+        TextView version = new TextView(this);
+        version.setText(PUBLISHED_VERSION);
+        version.setTextColor(Color.WHITE);
+        version.setTextSize(22);
+        version.setTypeface(Typeface.DEFAULT_BOLD);
+        version.setShadowLayer(8f, 0f, 0f, 0xaa000000);
+        version.setGravity(Gravity.RIGHT);
+        FrameLayout.LayoutParams versionParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.RIGHT);
+        versionParams.setMargins(0, 0, 36, 28);
+        shell.addView(version, versionParams);
+
+        setContentView(shell);
     }
 
     private LinearLayout makeColumn() {
@@ -175,12 +198,23 @@ public class MainActivity extends Activity {
         Button button = new Button(this);
         button.setText(text);
         button.setTextSize(18);
+        button.setTextColor(Color.WHITE);
         button.setAllCaps(false);
         button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setGravity(Gravity.CENTER);
+        button.setBackground(makeButtonBackground());
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(300, 72);
         params.setMargins(0, 12, 0, 0);
         button.setLayoutParams(params);
         return button;
+    }
+
+    private GradientDrawable makeButtonBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(0xd9212120);
+        drawable.setCornerRadius(4);
+        drawable.setStroke(1, 0x99ffffff);
+        return drawable;
     }
 
     private void showThemeDialog() {

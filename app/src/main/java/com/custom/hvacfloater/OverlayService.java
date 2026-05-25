@@ -203,7 +203,7 @@ public class OverlayService extends Service {
         button.setAllCaps(false);
         button.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         button.setPadding(2, 0, 2, 0);
-        button.setBackground(makeBackground(0xb0ffffff, 10, 0x88ffffff));
+        button.setBackground(makeBackground(0xd9212120, 10, 0x88ffffff));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(76, 62);
         params.setMargins(5, 0, 5, 0);
         button.setLayoutParams(params);

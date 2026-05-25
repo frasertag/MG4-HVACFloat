@@ -2,7 +2,11 @@
 
 Clean-room floating HVAC overlay app for the MG4 head unit.
 
-Current app version: `0.4`
+This app was built on the 2024 Xpower, Your car version may or may not function with this application. Feedback welcome
+
+Please note theme framework is built but icons are not yet ready for use, Please only use TEXT THEME for the moment
+
+Current app version: `0.4.1`
 
 ## Current Features
 
@@ -67,16 +71,16 @@ Build from this directory:
 The build script outputs:
 
 ```text
-dist\MG4-HVACFloat-V0.4.apk
+dist\MG4-HVACFloat-V0.4.1.apk
 ```
 
 Latest named build:
 
 ```text
-dist\MG4-HVACFloat-V0.4.apk
+dist\MG4-HVACFloat-V0.4.1.apk
 ```
 
-GitHub releases attach the APK and matching `.sha256` checksum as release assets.
+GitHub releases attach the APK and matching `.sha256` checksum as release assets. APK files in `dist` are local build outputs and are not committed to the repository.
 
 ## Implementation Notes
 
