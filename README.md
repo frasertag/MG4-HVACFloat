@@ -1,12 +1,12 @@
 # HVAC Float
 
-Clean-room floating HVAC overlay app for the MG4 head unit.
+Floating HVAC overlay app for the MG4 head unit.
 
-This app was built on the 2024 Xpower, Your car version may or may not function with this application. Feedback welcome
+### This app was built on the 2024 MG4 Xpower, Your car version may or may not function with this application. Feedback welcome
 
-Please note theme framework is built but icons are not yet ready for use, Please only use TEXT THEME for the moment
+### Please note theme framework is built but icons are not yet ready for use, Please only use TEXT THEME for the moment
 
-Current app version: `0.4.1`
+Current app version: `0.4.2`
 
 ## Current Features
 
@@ -23,6 +23,10 @@ Current app version: `0.4.1`
   - `Autostart Full`
   - `Autostart Hidden`
   - `Autostart Off`
+- Update checker:
+  - Checks the latest GitHub release.
+  - Downloads release APKs manually to the public Downloads folder.
+  - Opens the Downloads folder after download so the APK can be installed manually.
 - Current working HVAC controls:
   - Temperature down/up
   - Fan down/up
@@ -56,6 +60,8 @@ The main app screen currently provides:
   - `HIDE` is always shown.
 - `Autostart Mode`
   - Controls boot behaviour.
+- `Check Updates`
+  - Checks GitHub releases and downloads newer APK releases to Downloads.
 - `Overlay Permission`
 - `Start HVAC Overlay`
 - `Stop HVAC Overlay`
@@ -71,13 +77,13 @@ Build from this directory:
 The build script outputs:
 
 ```text
-dist\MG4-HVACFloat-V0.4.1.apk
+dist\MG4-HVACFloat-V0.4.2.apk
 ```
 
 Latest named build:
 
 ```text
-dist\MG4-HVACFloat-V0.4.1.apk
+dist\MG4-HVACFloat-V0.4.2.apk
 ```
 
 GitHub releases attach the APK and matching `.sha256` checksum as release assets. APK files in `dist` are local build outputs and are not committed to the repository.
