@@ -3,4 +3,5 @@ build/
 app/build/
 dist/*
 !dist/MG4-HVACFloat-V*.apk
+!dist/MG4-HVACFloat-V*.apk.sha256
 local.properties
