@@ -30,6 +30,7 @@ public class OverlayService extends Service {
     private static final int NOTIFICATION_ID = 44;
     private static final String NOTIFICATION_CHANNEL_ID = "hvac_float_overlay";
     private static final int BAR_HEIGHT = 92;
+    private static final int ICON_BAR_HEIGHT = 104;
     private static final int HANDLE_SIZE = BAR_HEIGHT;
     private static final long DOUBLE_TAP_MS = 350;
 
@@ -95,7 +96,7 @@ public class OverlayService extends Service {
 
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 startHidden ? HANDLE_SIZE : WindowManager.LayoutParams.WRAP_CONTENT,
-                startHidden ? HANDLE_SIZE : BAR_HEIGHT,
+                startHidden ? HANDLE_SIZE : expandedBarHeight(),
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
@@ -106,10 +107,10 @@ public class OverlayService extends Service {
         params.gravity = Gravity.TOP | Gravity.LEFT;
         if (prefs.getBoolean(HvacTheme.KEY_POSITION_SAVED, false)) {
             params.x = prefs.getInt(HvacTheme.KEY_POSITION_X, 0);
-            params.y = prefs.getInt(HvacTheme.KEY_POSITION_Y, metrics.heightPixels - BAR_HEIGHT - 8);
+            params.y = prefs.getInt(HvacTheme.KEY_POSITION_Y, metrics.heightPixels - expandedBarHeight() - 8);
         } else {
             params.x = 0;
-            params.y = Math.max(0, metrics.heightPixels - BAR_HEIGHT - 8);
+            params.y = Math.max(0, metrics.heightPixels - expandedBarHeight() - 8);
         }
         overlayParams = params;
 
@@ -165,6 +166,10 @@ public class OverlayService extends Service {
         return prefs.getBoolean(key, true);
     }
 
+    private int expandedBarHeight() {
+        return HvacTheme.ICON_SET_1.equals(theme) ? ICON_BAR_HEIGHT : BAR_HEIGHT;
+    }
+
     private void savePosition() {
         if (prefs == null) {
             prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
@@ -178,8 +183,13 @@ public class OverlayService extends Service {
     }
 
     private void populateExpandedShell() {
-        overlayView.setPadding(14, 10, 14, 10);
-        overlayView.setBackground(makeBackground(0xdd181a20, 18, 0x66ffffff));
+        if (HvacTheme.ICON_SET_1.equals(theme)) {
+            overlayView.setPadding(12, 8, 12, 8);
+            overlayView.setBackground(makeBackground(0xdd181a20, 18, 0x66ffffff));
+        } else {
+            overlayView.setPadding(14, 10, 14, 10);
+            overlayView.setBackground(makeBackground(0xdd181a20, 18, 0x66ffffff));
+        }
     }
 
     private TextView makeLabel(String text) {
@@ -212,8 +222,18 @@ public class OverlayService extends Service {
 
     private Button makeIconButton(String drawableName) {
         Button button = makeButton("");
+        makeBareIconButton(button);
         setButtonIcon(button, drawableName, 42);
         return button;
+    }
+
+    private void makeBareIconButton(Button button) {
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPadding(0, 0, 0, 0);
     }
 
     private void setButtonIcon(Button button, String drawableName, int size) {
@@ -277,6 +297,7 @@ public class OverlayService extends Service {
         params.setMargins(5, 0, 5, 0);
         button.setLayoutParams(params);
         if (HvacTheme.ICON_SET_1.equals(theme)) {
+            makeBareIconButton(button);
             button.setText("");
             button.setTag("hvac_icon_flow");
             setButtonIcon(button, flowIcon(lastMode), 110, 50);
@@ -301,13 +322,16 @@ public class OverlayService extends Service {
     private Button makeSeatButton(String text, String iconPrefix) {
         Button button = makeButton(text);
         button.setTextSize(14);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(88, 62);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                HvacTheme.ICON_SET_1.equals(theme) ? 104 : 88,
+                HvacTheme.ICON_SET_1.equals(theme) ? 82 : 62);
         params.setMargins(5, 0, 5, 0);
         button.setLayoutParams(params);
         if (HvacTheme.ICON_SET_1.equals(theme)) {
+            makeBareIconButton(button);
             button.setText("");
             button.setTag(iconPrefix);
-            setButtonIcon(button, iconPrefix + "_0", 48);
+            setButtonIcon(button, iconPrefix + "_0", 100, 66);
         }
         return button;
     }
@@ -327,9 +351,14 @@ public class OverlayService extends Service {
     private Button makeSettingsButton() {
         final Button button = makeButton("");
         try {
-            int drawableResId = getResources().getIdentifier("settings_button_bg", "drawable", getPackageName());
-            button.setBackgroundResource(drawableResId);
-            button.setCompoundDrawables(null, null, null, null);
+            if (HvacTheme.ICON_SET_1.equals(theme)) {
+                makeBareIconButton(button);
+                setButtonIcon(button, "ic_settings_gear", 54);
+            } else {
+                int drawableResId = getResources().getIdentifier("settings_button_bg", "drawable", getPackageName());
+                button.setBackgroundResource(drawableResId);
+                button.setCompoundDrawables(null, null, null, null);
+            }
         } catch (Throwable ignored) {
             button.setText("Settings");
             button.setTextSize(12);
@@ -360,6 +389,7 @@ public class OverlayService extends Service {
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(108, 62);
             params.setMargins(5, 0, 5, 0);
             loop.setLayoutParams(params);
+            makeBareIconButton(loop);
             loop.setText("");
             loop.setTag("hvac_icon_loop");
             setButtonIcon(loop, "hvac_icon_loop_recirc", 86, 50);
@@ -370,12 +400,14 @@ public class OverlayService extends Service {
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(108, 62);
             params.setMargins(5, 0, 5, 0);
             defrost.setLayoutParams(params);
+            makeBareIconButton(defrost);
             defrost.setText("");
             defrost.setTag("hvac_icon_defrost");
             setButtonIcon(defrost, "hvac_icon_defrost_off", 86, 50);
         }
         final Button wheel = controlEnabled(HvacTheme.KEY_STEERING_HEAT) ? makeButton("Wheel") : null;
         if (wheel != null && HvacTheme.ICON_SET_1.equals(theme)) {
+            makeBareIconButton(wheel);
             wheel.setText("");
             wheel.setTag("hvac_icon_wheel");
             setButtonIcon(wheel, "hvac_icon_wheel_0", 48);
@@ -453,8 +485,20 @@ public class OverlayService extends Service {
             }
         });
 
-        if (temp != null) temp.setOnTouchListener(new DragTouchListener());
-        if (fan != null) fan.setOnTouchListener(new DragTouchListener());
+        if (passengerSeat != null) passengerSeat.setOnTouchListener(new DragTouchListener(true));
+        if (tempDown != null) tempDown.setOnTouchListener(new DragTouchListener(true));
+        if (temp != null) temp.setOnTouchListener(new DragTouchListener(false));
+        if (tempUp != null) tempUp.setOnTouchListener(new DragTouchListener(true));
+        if (fanDown != null) fanDown.setOnTouchListener(new DragTouchListener(true));
+        if (fan != null) fan.setOnTouchListener(new DragTouchListener(false));
+        if (fanUp != null) fanUp.setOnTouchListener(new DragTouchListener(true));
+        if (auto != null) auto.setOnTouchListener(new DragTouchListener(true));
+        if (loop != null) loop.setOnTouchListener(new DragTouchListener(true));
+        if (flow != null) flow.setOnTouchListener(new DragTouchListener(true));
+        if (defrost != null) defrost.setOnTouchListener(new DragTouchListener(true));
+        if (wheel != null) wheel.setOnTouchListener(new DragTouchListener(true));
+        if (driverSeat != null) driverSeat.setOnTouchListener(new DragTouchListener(true));
+        if (settings != null) settings.setOnTouchListener(new DragTouchListener(true));
 
         if (passengerSeat != null) overlayView.addView(passengerSeat);
         if (tempDown != null) overlayView.addView(tempDown);
@@ -524,7 +568,7 @@ public class OverlayService extends Service {
         populateExpandedBar();
         overlayParams.gravity = Gravity.TOP | Gravity.LEFT;
         overlayParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
-        overlayParams.height = BAR_HEIGHT;
+        overlayParams.height = expandedBarHeight();
         try {
             windowManager.updateViewLayout(overlayView, overlayParams);
             savePosition();
@@ -533,6 +577,16 @@ public class OverlayService extends Service {
     }
 
     private final class DragTouchListener implements View.OnTouchListener {
+        private final boolean performClickOnTap;
+
+        DragTouchListener() {
+            this(false);
+        }
+
+        DragTouchListener(boolean performClickOnTap) {
+            this.performClickOnTap = performClickOnTap;
+        }
+
         @Override
         public boolean onTouch(View view, MotionEvent event) {
             if (overlayParams == null || overlayView == null || windowManager == null) {
@@ -578,6 +632,8 @@ public class OverlayService extends Service {
                     }
                     if (dragging) {
                         savePosition();
+                    } else if (!hidden && performClickOnTap && event.getActionMasked() == MotionEvent.ACTION_UP) {
+                        view.performClick();
                     }
                     longPressReady = false;
                     dragging = false;

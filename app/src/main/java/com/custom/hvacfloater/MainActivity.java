@@ -39,7 +39,7 @@ import java.net.URL;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_WRITE_STORAGE_FOR_UPDATE = 41;
-    private static final String CURRENT_VERSION = "0.5";
+    private static final String CURRENT_VERSION = "0.5.1";
     private static final String PUBLISHED_VERSION = "Published version: " + CURRENT_VERSION;
     private static final String RELEASES_LATEST_URL = "https://api.github.com/repos/frasertag/MG4-HVACFloat/releases/latest";
 

@@ -5,7 +5,7 @@ Floating HVAC overlay app for the MG4 head unit.
 #### This app was built on the 2024 MG4 Xpower, Your car version may or may not function with this application. 
 #### Feedback welcome
 
-Current app version: `0.5`
+Current app version: `0.5.1`
 
 ## Current Features
 
@@ -38,6 +38,8 @@ Current app version: `0.5`
   - Heated steering wheel
 - A/C button has been removed because the on-screen control was only half functional; use the hardware button.
 - Icon Set 1 now includes centered HVAC-style icons for temperature, fan, air loop, air flow, defrost, heated seats, and heated steering wheel.
+- Icon Set 1 uses OG-style heated seat ring icons and an adaptive taller bar so the larger icons are not clipped.
+- The full expanded overlay can be moved by long-press dragging controls, not only from hidden mode.
 
 ## Settings
 
@@ -77,13 +79,13 @@ Build from this directory:
 The build script outputs:
 
 ```text
-dist\MG4-HVACFloat-V0.5.apk
+dist\MG4-HVACFloat-V0.5.1.apk
 ```
 
 Latest named build:
 
 ```text
-dist\MG4-HVACFloat-V0.5.apk
+dist\MG4-HVACFloat-V0.5.1.apk
 ```
 
 GitHub releases attach the APK and matching `.sha256` checksum as release assets. APK files in `dist` are local build outputs and are not committed to the repository.

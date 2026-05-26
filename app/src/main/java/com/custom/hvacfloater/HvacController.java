@@ -380,7 +380,7 @@ final class HvacController {
         if (passengerSeatButton != null) {
             if (hasIconTag(passengerSeatButton, "hvac_icon_psg_seat")) {
                 passengerSeatButton.setText("");
-                setTopDrawable(passengerSeatButton, "hvac_icon_psg_seat_" + level, 48);
+                setTopDrawable(passengerSeatButton, "hvac_icon_psg_seat_" + level, 100, 66);
             } else {
                 passengerSeatButton.setText("PSG\nHeat " + level);
             }
@@ -394,7 +394,7 @@ final class HvacController {
         if (driverSeatButton != null) {
             if (hasIconTag(driverSeatButton, "hvac_icon_drv_seat")) {
                 driverSeatButton.setText("");
-                setTopDrawable(driverSeatButton, "hvac_icon_drv_seat_" + level, 48);
+                setTopDrawable(driverSeatButton, "hvac_icon_drv_seat_" + level, 100, 66);
             } else {
                 driverSeatButton.setText("DRV\nHeat " + level);
             }
