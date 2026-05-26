@@ -212,14 +212,26 @@ public class OverlayService extends Service {
 
     private Button makeIconButton(String drawableName) {
         Button button = makeButton("");
+        setButtonIcon(button, drawableName, 42);
+        return button;
+    }
+
+    private void setButtonIcon(Button button, String drawableName, int size) {
+        setButtonIcon(button, drawableName, size, size);
+    }
+
+    private void setButtonIcon(Button button, String drawableName, int width, int height) {
         try {
             int drawableResId = getResources().getIdentifier(drawableName, "drawable", getPackageName());
             Drawable icon = getResources().getDrawable(drawableResId);
-            icon.setBounds(0, 0, 34, 34);
-            button.setCompoundDrawables(null, icon, null, null);
+            icon.setBounds(0, 0, width, height);
+            button.setText("");
+            button.setCompoundDrawables(null, null, null, null);
+            button.setForeground(icon);
+            button.setForegroundGravity(Gravity.CENTER);
+            button.setGravity(Gravity.CENTER);
         } catch (Throwable ignored) {
         }
-        return button;
     }
 
     private Button makePlusMinusButton(String text) {
@@ -228,32 +240,75 @@ public class OverlayService extends Service {
         return button;
     }
 
+    private Button makeTempDownButton() {
+        if (HvacTheme.ICON_SET_1.equals(theme)) {
+            return makeIconButton("hvac_icon_temp_reduce");
+        }
+        return makePlusMinusButton("-");
+    }
+
+    private Button makeTempUpButton() {
+        if (HvacTheme.ICON_SET_1.equals(theme)) {
+            return makeIconButton("hvac_icon_temp_add");
+        }
+        return makePlusMinusButton("+");
+    }
+
     private Button makeFanDownButton() {
         if (HvacTheme.ICON_SET_1.equals(theme)) {
-            return makeIconButton("ic_fan_small");
-        }
-        if (HvacTheme.ICON_SET_2.equals(theme)) {
-            return makeIconButton("ic_fan_down_alt");
+            return makeIconButton("hvac_icon_fan_reduce");
         }
         return makePlusMinusButton("-");
     }
 
     private Button makeFanUpButton() {
         if (HvacTheme.ICON_SET_1.equals(theme)) {
-            return makeIconButton("ic_fan_large");
-        }
-        if (HvacTheme.ICON_SET_2.equals(theme)) {
-            return makeIconButton("ic_fan_up_alt");
+            return makeIconButton("hvac_icon_fan_add");
         }
         return makePlusMinusButton("+");
     }
 
-    private Button makeSeatButton(String text) {
+    private Button makeFlowButton() {
+        int lastMode = prefs != null ? prefs.getInt(HvacTheme.KEY_LAST_FLOW_MODE, 2) : 2;
+        Button button = makeButton(flowLabel(lastMode));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                HvacTheme.ICON_SET_1.equals(theme) ? 124 : 86,
+                62);
+        params.setMargins(5, 0, 5, 0);
+        button.setLayoutParams(params);
+        if (HvacTheme.ICON_SET_1.equals(theme)) {
+            button.setText("");
+            button.setTag("hvac_icon_flow");
+            setButtonIcon(button, flowIcon(lastMode), 110, 50);
+        }
+        return button;
+    }
+
+    private String flowLabel(int mode) {
+        if (mode == 2) return "Feet";
+        if (mode == 1) return "Feet\nFace";
+        if (mode == 0) return "Face";
+        return "Feet";
+    }
+
+    private String flowIcon(int mode) {
+        if (mode == 2) return "hvac_icon_flow_feet";
+        if (mode == 1) return "hvac_icon_flow_feet_face";
+        if (mode == 0) return "hvac_icon_flow_face";
+        return "hvac_icon_flow_feet";
+    }
+
+    private Button makeSeatButton(String text, String iconPrefix) {
         Button button = makeButton(text);
         button.setTextSize(14);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(88, 62);
         params.setMargins(5, 0, 5, 0);
         button.setLayoutParams(params);
+        if (HvacTheme.ICON_SET_1.equals(theme)) {
+            button.setText("");
+            button.setTag(iconPrefix);
+            setButtonIcon(button, iconPrefix + "_0", 48);
+        }
         return button;
     }
 
@@ -292,19 +347,40 @@ public class OverlayService extends Service {
 
     private void populateExpandedBar() {
         loadTheme();
-        final Button passengerSeat = controlEnabled(HvacTheme.KEY_PASSENGER_HEAT) ? makeSeatButton("PSG\nHeat 0") : null;
-        final Button tempDown = controlEnabled(HvacTheme.KEY_TEMP) ? makePlusMinusButton("-") : null;
+        final Button passengerSeat = controlEnabled(HvacTheme.KEY_PASSENGER_HEAT) ? makeSeatButton("PSG\nHeat 0", "hvac_icon_psg_seat") : null;
+        final Button tempDown = controlEnabled(HvacTheme.KEY_TEMP) ? makeTempDownButton() : null;
         final TextView temp = controlEnabled(HvacTheme.KEY_TEMP) ? makeLabel("22 C") : null;
-        final Button tempUp = controlEnabled(HvacTheme.KEY_TEMP) ? makePlusMinusButton("+") : null;
+        final Button tempUp = controlEnabled(HvacTheme.KEY_TEMP) ? makeTempUpButton() : null;
         final Button fanDown = controlEnabled(HvacTheme.KEY_FAN) ? makeFanDownButton() : null;
         final TextView fan = controlEnabled(HvacTheme.KEY_FAN) ? makeLabel("Fan 1") : null;
         final Button fanUp = controlEnabled(HvacTheme.KEY_FAN) ? makeFanUpButton() : null;
-        final Button auto = controlEnabled(HvacTheme.KEY_AUTO) ? makeButton("AUTO") : null;
+        final Button auto = controlEnabled(HvacTheme.KEY_AUTO) ? makeButton("AUTO\nFAN") : null;
         final Button loop = controlEnabled(HvacTheme.KEY_LOOP) ? makeButton("Loop") : null;
-        final Button flow = controlEnabled(HvacTheme.KEY_FLOW) ? makeButton("Flow") : null;
+        if (loop != null && HvacTheme.ICON_SET_1.equals(theme)) {
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(108, 62);
+            params.setMargins(5, 0, 5, 0);
+            loop.setLayoutParams(params);
+            loop.setText("");
+            loop.setTag("hvac_icon_loop");
+            setButtonIcon(loop, "hvac_icon_loop_recirc", 86, 50);
+        }
+        final Button flow = controlEnabled(HvacTheme.KEY_FLOW) ? makeFlowButton() : null;
         final Button defrost = controlEnabled(HvacTheme.KEY_DEFROST) ? makeButton("Defrost") : null;
+        if (defrost != null && HvacTheme.ICON_SET_1.equals(theme)) {
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(108, 62);
+            params.setMargins(5, 0, 5, 0);
+            defrost.setLayoutParams(params);
+            defrost.setText("");
+            defrost.setTag("hvac_icon_defrost");
+            setButtonIcon(defrost, "hvac_icon_defrost_off", 86, 50);
+        }
         final Button wheel = controlEnabled(HvacTheme.KEY_STEERING_HEAT) ? makeButton("Wheel") : null;
-        final Button driverSeat = controlEnabled(HvacTheme.KEY_DRIVER_HEAT) ? makeSeatButton("DRV\nHeat 0") : null;
+        if (wheel != null && HvacTheme.ICON_SET_1.equals(theme)) {
+            wheel.setText("");
+            wheel.setTag("hvac_icon_wheel");
+            setButtonIcon(wheel, "hvac_icon_wheel_0", 48);
+        }
+        final Button driverSeat = controlEnabled(HvacTheme.KEY_DRIVER_HEAT) ? makeSeatButton("DRV\nHeat 0", "hvac_icon_drv_seat") : null;
         final Button settings = controlEnabled(HvacTheme.KEY_SETTINGS) ? makeSettingsButton() : null;
 
         hvacController = new HvacController(temp, fan, null, auto, loop, flow, defrost, passengerSeat, driverSeat, wheel);

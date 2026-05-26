@@ -23,6 +23,7 @@ final class HvacTheme {
     static final String KEY_POSITION_SAVED = "position_saved";
     static final String KEY_POSITION_X = "position_x";
     static final String KEY_POSITION_Y = "position_y";
+    static final String KEY_LAST_FLOW_MODE = "last_flow_mode";
 
     private HvacTheme() {
     }

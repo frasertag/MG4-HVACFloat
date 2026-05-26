@@ -35,8 +35,8 @@ Copy-Item -LiteralPath $platform -Destination $localAndroidJar -Force
   --manifest (Join-Path $root "app\src\main\AndroidManifest.xml") `
   --min-sdk-version 28 `
   --target-sdk-version 31 `
-  --version-code 6 `
-  --version-name 0.4.2 `
+  --version-code 7 `
+  --version-name 0.5 `
   (Join-Path $compiled "resources.zip")
 
 $sources = Get-ChildItem -Path (Join-Path $root "app\src\main\java") -Recurse -Filter *.java | Select-Object -ExpandProperty FullName
@@ -84,8 +84,8 @@ finally {
   --ks-key-alias platform `
   --ks-pass pass:android `
   --key-pass pass:android `
-  --out (Join-Path $dist "MG4-HVACFloat-V0.4.2.apk") `
+  --out (Join-Path $dist "MG4-HVACFloat-V0.5.apk") `
   (Join-Path $build "aligned.apk")
 
-& $apksigner verify --verbose (Join-Path $dist "MG4-HVACFloat-V0.4.2.apk")
-Get-Item (Join-Path $dist "MG4-HVACFloat-V0.4.2.apk")
+& $apksigner verify --verbose (Join-Path $dist "MG4-HVACFloat-V0.5.apk")
+Get-Item (Join-Path $dist "MG4-HVACFloat-V0.5.apk")

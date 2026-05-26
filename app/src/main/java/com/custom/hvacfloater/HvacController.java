@@ -1,7 +1,9 @@
 package com.custom.hvacfloater;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.TextView;
@@ -28,6 +30,7 @@ final class HvacController {
     private final TextView steeringWheelHeatButton;
 
     private AirConditionManager manager;
+    private SharedPreferences prefs;
     private AirConditionBean bean;
     private int loopMode;
     private int passengerSeatLevel;
@@ -53,6 +56,7 @@ final class HvacController {
     }
 
     void init(Context context) {
+        prefs = context.getSharedPreferences(HvacTheme.PREFS, Context.MODE_PRIVATE);
         try {
             AirConditionManager.init(context, new VehicleServiceContract.IVehicleServiceListener() {
                 @Override
@@ -310,10 +314,19 @@ final class HvacController {
     private void updateLoop(int state) {
         loopMode = normalizeLoopMode(state);
         if (loopButton != null) {
-            if (loopMode == 0) {
+            if (hasIconTag(loopButton, "hvac_icon_loop")) {
+                loopButton.setText("");
+                if (loopMode == 0) {
+                    setTopDrawable(loopButton, "hvac_icon_loop_recirc", 86, 50);
+                } else if (loopMode == 1) {
+                    setTopDrawable(loopButton, "hvac_icon_loop_fresh", 86, 50);
+                } else {
+                    setTopDrawable(loopButton, "hvac_icon_loop_auto", 86, 50);
+                }
+            } else if (loopMode == 0) {
                 loopButton.setText("Recirc");
             } else if (loopMode == 1) {
-                loopButton.setText("Air In");
+                loopButton.setText("Fresh\nAir");
             } else {
                 loopButton.setText("Air Auto");
             }
@@ -322,13 +335,33 @@ final class HvacController {
     }
 
     private void updateDefrost(int state) {
-        if (defrostButton != null) defrostButton.setTextColor(state == 1 ? ACTIVE_COLOR : INACTIVE_COLOR);
+        if (defrostButton != null) {
+            if (hasIconTag(defrostButton, "hvac_icon_defrost")) {
+                defrostButton.setText("");
+                setTopDrawable(defrostButton, state == 1 ? "hvac_icon_defrost_on" : "hvac_icon_defrost_off", 86, 50);
+            }
+            defrostButton.setTextColor(state == 1 ? ACTIVE_COLOR : INACTIVE_COLOR);
+        }
     }
 
     private void updateFlow(int mode) {
         flowMode = mode;
+        if (prefs != null) {
+            prefs.edit().putInt(HvacTheme.KEY_LAST_FLOW_MODE, mode).apply();
+        }
         if (flowButton != null) {
-            if (mode == 2) {
+            if (hasIconTag(flowButton, "hvac_icon_flow")) {
+                flowButton.setText("");
+                if (mode == 2) {
+                    setTopDrawable(flowButton, "hvac_icon_flow_feet", 110, 50);
+                } else if (mode == 1) {
+                    setTopDrawable(flowButton, "hvac_icon_flow_feet_face", 110, 50);
+                } else if (mode == 0) {
+                    setTopDrawable(flowButton, "hvac_icon_flow_face", 110, 50);
+                } else {
+                    setTopDrawable(flowButton, "hvac_icon_flow_feet", 110, 50);
+                }
+            } else if (mode == 2) {
                 flowButton.setText("Feet");
             } else if (mode == 1) {
                 flowButton.setText("Feet\nFace");
@@ -345,7 +378,12 @@ final class HvacController {
         level = normalizeSeatLevel(level);
         passengerSeatLevel = level;
         if (passengerSeatButton != null) {
-            passengerSeatButton.setText("PSG\nHeat " + level);
+            if (hasIconTag(passengerSeatButton, "hvac_icon_psg_seat")) {
+                passengerSeatButton.setText("");
+                setTopDrawable(passengerSeatButton, "hvac_icon_psg_seat_" + level, 48);
+            } else {
+                passengerSeatButton.setText("PSG\nHeat " + level);
+            }
             passengerSeatButton.setTextColor(level > 0 ? ACTIVE_COLOR : INACTIVE_COLOR);
         }
     }
@@ -354,7 +392,12 @@ final class HvacController {
         level = normalizeSeatLevel(level);
         driverSeatLevel = level;
         if (driverSeatButton != null) {
-            driverSeatButton.setText("DRV\nHeat " + level);
+            if (hasIconTag(driverSeatButton, "hvac_icon_drv_seat")) {
+                driverSeatButton.setText("");
+                setTopDrawable(driverSeatButton, "hvac_icon_drv_seat_" + level, 48);
+            } else {
+                driverSeatButton.setText("DRV\nHeat " + level);
+            }
             driverSeatButton.setTextColor(level > 0 ? ACTIVE_COLOR : INACTIVE_COLOR);
         }
     }
@@ -362,7 +405,35 @@ final class HvacController {
     private void updateSteeringWheelHeat(int state) {
         steeringWheelHeatLevel = state;
         if (steeringWheelHeatButton != null) {
+            if (hasIconTag(steeringWheelHeatButton, "hvac_icon_wheel")) {
+                steeringWheelHeatButton.setText("");
+                setTopDrawable(steeringWheelHeatButton, state == 3 ? "hvac_icon_wheel_1" : "hvac_icon_wheel_0", 48);
+            }
             steeringWheelHeatButton.setTextColor(state == 3 ? ACTIVE_COLOR : INACTIVE_COLOR);
+        }
+    }
+
+    private boolean hasIconTag(TextView view, String value) {
+        Object tag = view.getTag();
+        return tag instanceof String && value.equals(tag);
+    }
+
+    private void setTopDrawable(TextView view, String drawableName, int size) {
+        setTopDrawable(view, drawableName, size, size);
+    }
+
+    private void setTopDrawable(TextView view, String drawableName, int width, int height) {
+        try {
+            int drawableResId = view.getContext().getResources().getIdentifier(
+                    drawableName,
+                    "drawable",
+                    view.getContext().getPackageName());
+            Drawable icon = view.getContext().getResources().getDrawable(drawableResId);
+            icon.setBounds(0, 0, width, height);
+            view.setCompoundDrawables(null, null, null, null);
+            view.setForeground(icon);
+            view.setForegroundGravity(android.view.Gravity.CENTER);
+        } catch (Throwable ignored) {
         }
     }
 

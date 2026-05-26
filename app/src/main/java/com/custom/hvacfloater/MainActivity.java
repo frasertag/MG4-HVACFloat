@@ -39,7 +39,7 @@ import java.net.URL;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_WRITE_STORAGE_FOR_UPDATE = 41;
-    private static final String CURRENT_VERSION = "0.4.2";
+    private static final String CURRENT_VERSION = "0.5";
     private static final String PUBLISHED_VERSION = "Published version: " + CURRENT_VERSION;
     private static final String RELEASES_LATEST_URL = "https://api.github.com/repos/frasertag/MG4-HVACFloat/releases/latest";
 
@@ -249,8 +249,8 @@ public class MainActivity extends Activity {
     }
 
     private void showThemeDialog() {
-        final String[] labels = new String[] {"TEXT", "ICON Set 1", "ICON Set 2"};
-        final String[] values = new String[] {HvacTheme.TEXT, HvacTheme.ICON_SET_1, HvacTheme.ICON_SET_2};
+        final String[] labels = new String[] {"TEXT", "ICON Set 1"};
+        final String[] values = new String[] {HvacTheme.TEXT, HvacTheme.ICON_SET_1};
         String current = prefs.getString(HvacTheme.KEY_THEME, HvacTheme.TEXT);
         int selected = 0;
         for (int i = 0; i < values.length; i++) {
@@ -361,8 +361,6 @@ public class MainActivity extends Activity {
         String label;
         if (HvacTheme.ICON_SET_1.equals(theme)) {
             label = "Theme: ICON Set 1";
-        } else if (HvacTheme.ICON_SET_2.equals(theme)) {
-            label = "Theme: ICON Set 2";
         } else {
             label = "Theme: TEXT";
         }
