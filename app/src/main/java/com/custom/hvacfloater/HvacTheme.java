@@ -6,6 +6,10 @@ final class HvacTheme {
     static final String TEXT = "text";
     static final String ICON_SET_1 = "icon_set_1";
     static final String ICON_SET_2 = "icon_set_2";
+    static final String KEY_BAR_COLOR = "bar_color";
+    static final String KEY_BAR_OPACITY = "bar_opacity";
+    static final String DEFAULT_BAR_COLOR = "#181A20";
+    static final int DEFAULT_BAR_OPACITY = 87;
     static final String KEY_PASSENGER_HEAT = "control_passenger_heat";
     static final String KEY_TEMP = "control_temp";
     static final String KEY_FAN = "control_fan";

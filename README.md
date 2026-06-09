@@ -5,7 +5,7 @@ Floating HVAC overlay app for the MG4 head unit.
 #### This app was built on the 2024 MG4 Xpower, Your car version may or may not function with this application. 
 #### Feedback welcome
 
-Current app version: `0.5.1`
+Current app version: `0.5.2`
 
 ## Current Features
 
@@ -18,6 +18,7 @@ Current app version: `0.5.1`
 - Double-tap hidden `HVAC` handle to restore the bar
 - Optional settings gear button on the bar to open the app settings screen
 - Selectable controls, so the bar can be compact or full
+- Themeable expanded bar background colour and opacity
 - Autostart modes:
   - `Autostart Full`
   - `Autostart Hidden`
@@ -57,6 +58,8 @@ The main app screen currently provides:
 - `Select Theme`
   - Theme plumbing exists, and Icon Set 1 is now available.
   - `TEXT` is the sane/default mode.
+- `Bar Colour`
+  - Adjust the expanded overlay bar background using RGB sliders, a `#RRGGBB` field, and 0-100% opacity.
 - `Select Controls`
   - Choose which HVAC groups appear on the floating bar.
   - `HIDE` is always shown.
@@ -79,13 +82,13 @@ Build from this directory:
 The build script outputs:
 
 ```text
-dist\MG4-HVACFloat-V0.5.1.apk
+dist\MG4-HVACFloat-V0.5.2.apk
 ```
 
 Latest named build:
 
 ```text
-dist\MG4-HVACFloat-V0.5.1.apk
+dist\MG4-HVACFloat-V0.5.2.apk
 ```
 
 GitHub releases attach the APK and matching `.sha256` checksum as release assets. APK files in `dist` are local build outputs and are not committed to the repository.

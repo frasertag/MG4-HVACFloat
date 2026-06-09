@@ -17,12 +17,17 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -39,12 +44,13 @@ import java.net.URL;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_WRITE_STORAGE_FOR_UPDATE = 41;
-    private static final String CURRENT_VERSION = "0.5.1";
+    private static final String CURRENT_VERSION = "0.5.2";
     private static final String PUBLISHED_VERSION = "Published version: " + CURRENT_VERSION;
     private static final String RELEASES_LATEST_URL = "https://api.github.com/repos/frasertag/MG4-HVACFloat/releases/latest";
 
     private SharedPreferences prefs;
     private TextView themeStatus;
+    private TextView barStyleStatus;
     private TextView controlsStatus;
     private TextView autostartStatus;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -179,6 +185,18 @@ public class MainActivity extends Activity {
         rightColumn.addView(themeStatus);
         updateThemeStatus();
 
+        Button barStyle = makeButton("Bar Colour");
+        barStyle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showBarStyleDialog();
+            }
+        });
+        rightColumn.addView(barStyle);
+        barStyleStatus = makeStatusText();
+        rightColumn.addView(barStyleStatus);
+        updateBarStyleStatus();
+
         FrameLayout shell = new FrameLayout(this);
         shell.addView(root, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -270,6 +288,179 @@ public class MainActivity extends Activity {
                         dialogInterface.dismiss();
             }
                 })
+                .show();
+    }
+
+    private void showBarStyleDialog() {
+        final int[] rgb = parseColorParts(getBarColor());
+        final int[] opacity = new int[] {getBarOpacity()};
+        final boolean[] updating = new boolean[] {false};
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(36, 18, 36, 0);
+
+        final View preview = new View(this);
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                54);
+        previewParams.setMargins(0, 0, 0, 18);
+        layout.addView(preview, previewParams);
+
+        final EditText hexInput = new EditText(this);
+        hexInput.setSingleLine(true);
+        hexInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        hexInput.setText(formatHex(rgb[0], rgb[1], rgb[2]));
+        hexInput.setSelectAllOnFocus(true);
+        layout.addView(hexInput, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        final TextView redLabel = makeDialogLabel("");
+        final SeekBar red = makeColorSeekBar(rgb[0]);
+        layout.addView(redLabel);
+        layout.addView(red);
+
+        final TextView greenLabel = makeDialogLabel("");
+        final SeekBar green = makeColorSeekBar(rgb[1]);
+        layout.addView(greenLabel);
+        layout.addView(green);
+
+        final TextView blueLabel = makeDialogLabel("");
+        final SeekBar blue = makeColorSeekBar(rgb[2]);
+        layout.addView(blueLabel);
+        layout.addView(blue);
+
+        final TextView opacityLabel = makeDialogLabel("");
+        final SeekBar opacitySeek = new SeekBar(this);
+        opacitySeek.setMax(100);
+        opacitySeek.setProgress(opacity[0]);
+        layout.addView(opacityLabel);
+        layout.addView(opacitySeek);
+
+        final Runnable updatePreview = new Runnable() {
+            @Override
+            public void run() {
+                redLabel.setText("Red: " + rgb[0]);
+                greenLabel.setText("Green: " + rgb[1]);
+                blueLabel.setText("Blue: " + rgb[2]);
+                opacityLabel.setText("Opacity: " + opacity[0] + "%");
+                preview.setBackground(makePreviewBackground(
+                        composeColor(rgb[0], rgb[1], rgb[2], opacity[0]),
+                        10,
+                        0x99ffffff));
+            }
+        };
+        updatePreview.run();
+
+        TextWatcher watcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                if (updating[0]) {
+                    return;
+                }
+                int[] parsed = parseColorParts(editable.toString());
+                if (parsed == null) {
+                    return;
+                }
+                updating[0] = true;
+                rgb[0] = parsed[0];
+                rgb[1] = parsed[1];
+                rgb[2] = parsed[2];
+                red.setProgress(rgb[0]);
+                green.setProgress(rgb[1]);
+                blue.setProgress(rgb[2]);
+                updatePreview.run();
+                updating[0] = false;
+            }
+        };
+        hexInput.addTextChangedListener(watcher);
+
+        SeekBar.OnSeekBarChangeListener colorListener = new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (updating[0]) {
+                    return;
+                }
+                rgb[0] = red.getProgress();
+                rgb[1] = green.getProgress();
+                rgb[2] = blue.getProgress();
+                updating[0] = true;
+                hexInput.setText(formatHex(rgb[0], rgb[1], rgb[2]));
+                hexInput.setSelection(hexInput.getText().length());
+                updatePreview.run();
+                updating[0] = false;
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        };
+        red.setOnSeekBarChangeListener(colorListener);
+        green.setOnSeekBarChangeListener(colorListener);
+        blue.setOnSeekBarChangeListener(colorListener);
+        opacitySeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                opacity[0] = progress;
+                updatePreview.run();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+
+        new AlertDialog.Builder(this)
+                .setTitle("Bar Colour")
+                .setView(layout)
+                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int which) {
+                        int[] parsed = parseColorParts(hexInput.getText().toString());
+                        if (parsed != null) {
+                            rgb[0] = parsed[0];
+                            rgb[1] = parsed[1];
+                            rgb[2] = parsed[2];
+                        }
+                        prefs.edit()
+                                .putString(HvacTheme.KEY_BAR_COLOR, formatHex(rgb[0], rgb[1], rgb[2]))
+                                .putInt(HvacTheme.KEY_BAR_OPACITY, opacity[0])
+                                .apply();
+                        updateBarStyleStatus();
+                        refreshOverlayBarStyle();
+                        Toast.makeText(MainActivity.this, "Bar colour saved", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNeutralButton("Reset", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int which) {
+                        prefs.edit()
+                                .putString(HvacTheme.KEY_BAR_COLOR, HvacTheme.DEFAULT_BAR_COLOR)
+                                .putInt(HvacTheme.KEY_BAR_OPACITY, HvacTheme.DEFAULT_BAR_OPACITY)
+                                .apply();
+                        updateBarStyleStatus();
+                        refreshOverlayBarStyle();
+                        Toast.makeText(MainActivity.this, "Bar colour reset", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
                 .show();
     }
 
@@ -365,6 +556,106 @@ public class MainActivity extends Activity {
             label = "Theme: TEXT";
         }
         themeStatus.setText(label);
+    }
+
+    private void updateBarStyleStatus() {
+        if (barStyleStatus == null) return;
+        barStyleStatus.setText("Bar: " + getBarColor() + " / " + getBarOpacity() + "%");
+    }
+
+    private String getBarColor() {
+        String color = prefs.getString(HvacTheme.KEY_BAR_COLOR, HvacTheme.DEFAULT_BAR_COLOR);
+        int[] parsed = parseColorParts(color);
+        if (parsed == null) {
+            return HvacTheme.DEFAULT_BAR_COLOR;
+        }
+        return formatHex(parsed[0], parsed[1], parsed[2]);
+    }
+
+    private int getBarOpacity() {
+        return clamp(prefs.getInt(HvacTheme.KEY_BAR_OPACITY, HvacTheme.DEFAULT_BAR_OPACITY), 0, 100);
+    }
+
+    private TextView makeDialogLabel(String text) {
+        TextView label = new TextView(this);
+        label.setText(text);
+        label.setTextSize(16);
+        label.setTypeface(Typeface.DEFAULT_BOLD);
+        label.setTextColor(0xff222222);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 14, 0, 0);
+        label.setLayoutParams(params);
+        return label;
+    }
+
+    private SeekBar makeColorSeekBar(int value) {
+        SeekBar seekBar = new SeekBar(this);
+        seekBar.setMax(255);
+        seekBar.setProgress(clamp(value, 0, 255));
+        return seekBar;
+    }
+
+    private GradientDrawable makePreviewBackground(int color, int radius, int strokeColor) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(radius);
+        drawable.setStroke(1, strokeColor);
+        return drawable;
+    }
+
+    private int composeColor(int red, int green, int blue, int opacity) {
+        int alpha = Math.round(clamp(opacity, 0, 100) * 255f / 100f);
+        return (alpha << 24)
+                | (clamp(red, 0, 255) << 16)
+                | (clamp(green, 0, 255) << 8)
+                | clamp(blue, 0, 255);
+    }
+
+    private int[] parseColorParts(String value) {
+        if (value == null) {
+            return null;
+        }
+        String clean = value.trim();
+        if (clean.startsWith("#")) {
+            clean = clean.substring(1);
+        }
+        if (clean.length() != 6) {
+            return null;
+        }
+        try {
+            int color = Integer.parseInt(clean, 16);
+            return new int[] {
+                    (color >> 16) & 0xff,
+                    (color >> 8) & 0xff,
+                    color & 0xff
+            };
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private String formatHex(int red, int green, int blue) {
+        return String.format("#%02X%02X%02X",
+                clamp(red, 0, 255),
+                clamp(green, 0, 255),
+                clamp(blue, 0, 255));
+    }
+
+    private int clamp(int value, int min, int max) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
+
+    private void refreshOverlayBarStyle() {
+        if (!OverlayService.isOverlayActive()) {
+            return;
+        }
+        Intent intent = new Intent(this, OverlayService.class);
+        intent.putExtra(OverlayService.EXTRA_REFRESH_STYLE, true);
+        startService(intent);
     }
 
     private void updateControlsStatus() {

@@ -9,7 +9,7 @@ android {
         applicationId "com.custom.hvacfloater"
         minSdk 28
         targetSdk 31
-        versionCode 8
-        versionName "0.5.1"
+        versionCode 9
+        versionName "0.5.2"
     }
 }

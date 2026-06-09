@@ -27,6 +27,7 @@ import android.widget.TextView;
 
 public class OverlayService extends Service {
     public static final String EXTRA_START_HIDDEN = "com.custom.hvacfloater.START_HIDDEN";
+    public static final String EXTRA_REFRESH_STYLE = "com.custom.hvacfloater.REFRESH_STYLE";
     private static final int NOTIFICATION_ID = 44;
     private static final String NOTIFICATION_CHANNEL_ID = "hvac_float_overlay";
     private static final int BAR_HEIGHT = 92;
@@ -49,6 +50,7 @@ public class OverlayService extends Service {
     private HvacController hvacController;
     private String theme = HvacTheme.TEXT;
     private SharedPreferences prefs;
+    private static boolean overlayActive;
     private final Runnable longPressRunnable = new Runnable() {
         @Override
         public void run() {
@@ -64,13 +66,29 @@ public class OverlayService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        overlayActive = true;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+    }
+
+    static boolean isOverlayActive() {
+        return overlayActive;
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startAsForeground();
         if (overlayView != null) {
+            if (intent != null && intent.getBooleanExtra(EXTRA_REFRESH_STYLE, false)) {
+                loadTheme();
+                if (!hidden) {
+                    populateExpandedShell();
+                    try {
+                        windowManager.updateViewLayout(overlayView, overlayParams);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                return START_STICKY;
+            }
             if (intent != null && intent.getBooleanExtra(EXTRA_START_HIDDEN, false)) {
                 collapseBar();
             } else if (hidden) {
@@ -183,12 +201,44 @@ public class OverlayService extends Service {
     }
 
     private void populateExpandedShell() {
+        int barColor = configuredBarBackgroundColor();
         if (HvacTheme.ICON_SET_1.equals(theme)) {
             overlayView.setPadding(12, 8, 12, 8);
-            overlayView.setBackground(makeBackground(0xdd181a20, 18, 0x66ffffff));
+            overlayView.setBackground(makeBackground(barColor, 18, 0x66ffffff));
         } else {
             overlayView.setPadding(14, 10, 14, 10);
-            overlayView.setBackground(makeBackground(0xdd181a20, 18, 0x66ffffff));
+            overlayView.setBackground(makeBackground(barColor, 18, 0x66ffffff));
+        }
+    }
+
+    private int configuredBarBackgroundColor() {
+        if (prefs == null) {
+            prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
+        }
+        int rgb = parseRgbColor(
+                prefs.getString(HvacTheme.KEY_BAR_COLOR, HvacTheme.DEFAULT_BAR_COLOR),
+                0x181a20);
+        int opacity = prefs.getInt(HvacTheme.KEY_BAR_OPACITY, HvacTheme.DEFAULT_BAR_OPACITY);
+        opacity = Math.max(0, Math.min(100, opacity));
+        int alpha = Math.round(opacity * 255f / 100f);
+        return (alpha << 24) | rgb;
+    }
+
+    private int parseRgbColor(String value, int fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String clean = value.trim();
+        if (clean.startsWith("#")) {
+            clean = clean.substring(1);
+        }
+        if (clean.length() != 6) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(clean, 16) & 0x00ffffff;
+        } catch (Throwable ignored) {
+            return fallback;
         }
     }
 
@@ -647,6 +697,7 @@ public class OverlayService extends Service {
 
     @Override
     public void onDestroy() {
+        overlayActive = false;
         handler.removeCallbacks(longPressRunnable);
         if (hvacController != null) {
             hvacController.release();
