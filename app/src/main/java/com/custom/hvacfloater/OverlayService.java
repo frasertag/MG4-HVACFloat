@@ -5,7 +5,9 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
@@ -15,6 +17,7 @@ import android.os.IBinder;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Build;
+import android.os.Parcel;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -28,8 +31,15 @@ import android.widget.TextView;
 public class OverlayService extends Service {
     public static final String EXTRA_START_HIDDEN = "com.custom.hvacfloater.START_HIDDEN";
     public static final String EXTRA_REFRESH_STYLE = "com.custom.hvacfloater.REFRESH_STYLE";
+    public static final String EXTRA_REFRESH_OVERLAY = "com.custom.hvacfloater.REFRESH_OVERLAY";
     private static final int NOTIFICATION_ID = 44;
     private static final String NOTIFICATION_CHANNEL_ID = "hvac_float_overlay";
+    private static final String SYSTEMUI_ACTION = "com.android.systemui.saicmotor.action.StartActivity";
+    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
+    private static final String SYSTEMUI_SERVICE = "com.android.systemui.StartActivityService";
+    private static final String START_ACTIVITY_INTERFACE = "com.android.systemui.IStartActivityService";
+    private static final int TRANSACTION_START_HVAC = IBinder.FIRST_CALL_TRANSACTION;
+    private static final int TRANSACTION_STOP_HVAC = IBinder.FIRST_CALL_TRANSACTION + 1;
     private static final int BAR_HEIGHT = 92;
     private static final int ICON_BAR_HEIGHT = 104;
     private static final int HANDLE_SIZE = BAR_HEIGHT;
@@ -49,8 +59,11 @@ public class OverlayService extends Service {
     private long lastHandleTapMs;
     private HvacController hvacController;
     private String theme = HvacTheme.TEXT;
+    private String overlayMode = HvacTheme.OVERLAY_MODE_BAR;
     private SharedPreferences prefs;
     private static boolean overlayActive;
+    private boolean factoryHvacOpen;
+    private boolean factoryHvacBinding;
     private final Runnable longPressRunnable = new Runnable() {
         @Override
         public void run() {
@@ -78,15 +91,24 @@ public class OverlayService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         startAsForeground();
         if (overlayView != null) {
+            if (intent != null && intent.getBooleanExtra(EXTRA_REFRESH_OVERLAY, false)) {
+                refreshOverlayMode();
+                return START_STICKY;
+            }
             if (intent != null && intent.getBooleanExtra(EXTRA_REFRESH_STYLE, false)) {
                 loadTheme();
-                if (!hidden) {
+                if (!hidden && !isFactoryHvacMode()) {
                     populateExpandedShell();
                     try {
                         windowManager.updateViewLayout(overlayView, overlayParams);
                     } catch (Throwable ignored) {
                     }
                 }
+                return START_STICKY;
+            }
+            loadTheme();
+            if (isFactoryHvacMode()) {
+                ensureFactoryHandle();
                 return START_STICKY;
             }
             if (intent != null && intent.getBooleanExtra(EXTRA_START_HIDDEN, false)) {
@@ -98,7 +120,8 @@ public class OverlayService extends Service {
         }
 
         loadTheme();
-        boolean startHidden = intent != null && intent.getBooleanExtra(EXTRA_START_HIDDEN, false);
+        boolean startHidden = isFactoryHvacMode()
+                || (intent != null && intent.getBooleanExtra(EXTRA_START_HIDDEN, false));
         overlayView = new LinearLayout(this);
         overlayView.setOrientation(LinearLayout.HORIZONTAL);
         overlayView.setGravity(Gravity.CENTER);
@@ -175,6 +198,11 @@ public class OverlayService extends Service {
     private void loadTheme() {
         prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
         theme = prefs.getString(HvacTheme.KEY_THEME, HvacTheme.TEXT);
+        overlayMode = prefs.getString(HvacTheme.KEY_OVERLAY_MODE, HvacTheme.OVERLAY_MODE_BAR);
+    }
+
+    private boolean isFactoryHvacMode() {
+        return HvacTheme.OVERLAY_MODE_FACTORY_HVAC.equals(overlayMode);
     }
 
     private boolean controlEnabled(String key) {
@@ -575,14 +603,71 @@ public class OverlayService extends Service {
         return drawable;
     }
 
-    private void collapseBar() {
-        if (hidden || overlayView == null || overlayParams == null || windowManager == null) {
-            return;
-        }
+    private void releaseHvacController() {
         if (hvacController != null) {
             hvacController.release();
             hvacController = null;
         }
+    }
+
+    private void refreshOverlayMode() {
+        loadTheme();
+        if (overlayView == null || overlayParams == null || windowManager == null) {
+            return;
+        }
+        overlayView.removeAllViews();
+        if (isFactoryHvacMode()) {
+            factoryHvacOpen = false;
+            releaseHvacController();
+            hidden = true;
+            populateCollapsedBar();
+            overlayParams.width = HANDLE_SIZE;
+            overlayParams.height = HANDLE_SIZE;
+        } else if (hidden) {
+            populateCollapsedBar();
+            overlayParams.width = HANDLE_SIZE;
+            overlayParams.height = HANDLE_SIZE;
+        } else {
+            populateExpandedShell();
+            populateExpandedBar();
+            overlayParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
+            overlayParams.height = expandedBarHeight();
+        }
+        overlayParams.gravity = Gravity.TOP | Gravity.LEFT;
+        try {
+            windowManager.updateViewLayout(overlayView, overlayParams);
+            savePosition();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void ensureFactoryHandle() {
+        if (overlayView == null || overlayParams == null || windowManager == null) {
+            return;
+        }
+        if (!hidden || overlayView.getChildCount() != 1
+                || overlayParams.width != HANDLE_SIZE
+                || overlayParams.height != HANDLE_SIZE) {
+            overlayView.removeAllViews();
+            releaseHvacController();
+            hidden = true;
+            populateCollapsedBar();
+            overlayParams.gravity = Gravity.TOP | Gravity.LEFT;
+            overlayParams.width = HANDLE_SIZE;
+            overlayParams.height = HANDLE_SIZE;
+            try {
+                windowManager.updateViewLayout(overlayView, overlayParams);
+                savePosition();
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private void collapseBar() {
+        if (hidden || overlayView == null || overlayParams == null || windowManager == null) {
+            return;
+        }
+        releaseHvacController();
         hidden = true;
         overlayView.removeAllViews();
         populateCollapsedBar();
@@ -612,6 +697,9 @@ public class OverlayService extends Service {
         if (!hidden || overlayView == null || overlayParams == null || windowManager == null) {
             return;
         }
+        if (isFactoryHvacMode()) {
+            return;
+        }
         hidden = false;
         overlayView.removeAllViews();
         populateExpandedShell();
@@ -623,6 +711,75 @@ public class OverlayService extends Service {
             windowManager.updateViewLayout(overlayView, overlayParams);
             savePosition();
         } catch (Throwable ignored) {
+        }
+    }
+
+    private void toggleFactoryHvacOverlay() {
+        if (factoryHvacBinding) {
+            return;
+        }
+        final boolean open = !factoryHvacOpen;
+        Intent intent = new Intent();
+        intent.setAction(SYSTEMUI_ACTION);
+        intent.setComponent(new ComponentName(SYSTEMUI_PACKAGE, SYSTEMUI_SERVICE));
+        factoryHvacBinding = true;
+        try {
+            boolean bound = bindService(intent, new FactoryHvacConnection(open), BIND_AUTO_CREATE);
+            if (!bound) {
+                factoryHvacBinding = false;
+                Toast.makeText(this, "Factory HVAC bind failed", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Throwable throwable) {
+            factoryHvacBinding = false;
+            Toast.makeText(this, "Factory HVAC unavailable", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private boolean callFactoryHvac(IBinder service, boolean open) {
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(START_ACTIVITY_INTERFACE);
+            service.transact(open ? TRANSACTION_START_HVAC : TRANSACTION_STOP_HVAC, data, reply, 0);
+            reply.readException();
+            return true;
+        } catch (Throwable throwable) {
+            return false;
+        } finally {
+            reply.recycle();
+            data.recycle();
+        }
+    }
+
+    private final class FactoryHvacConnection implements ServiceConnection {
+        private final boolean open;
+
+        FactoryHvacConnection(boolean open) {
+            this.open = open;
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            boolean ok = callFactoryHvac(service, open);
+            if (ok) {
+                factoryHvacOpen = open;
+                Toast.makeText(
+                        OverlayService.this,
+                        open ? "Factory HVAC opened" : "Factory HVAC closed",
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(OverlayService.this, "Factory HVAC call failed", Toast.LENGTH_SHORT).show();
+            }
+            try {
+                unbindService(this);
+            } catch (Throwable ignored) {
+            }
+            factoryHvacBinding = false;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            factoryHvacBinding = false;
         }
     }
 
@@ -675,7 +832,11 @@ public class OverlayService extends Service {
                         long now = System.currentTimeMillis();
                         if (now - lastHandleTapMs <= DOUBLE_TAP_MS) {
                             lastHandleTapMs = 0;
-                            expandBar();
+                            if (isFactoryHvacMode()) {
+                                toggleFactoryHvacOverlay();
+                            } else {
+                                expandBar();
+                            }
                         } else {
                             lastHandleTapMs = now;
                         }

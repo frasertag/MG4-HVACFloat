@@ -10,6 +10,9 @@ final class HvacTheme {
     static final String KEY_BAR_OPACITY = "bar_opacity";
     static final String DEFAULT_BAR_COLOR = "#181A20";
     static final int DEFAULT_BAR_OPACITY = 87;
+    static final String KEY_OVERLAY_MODE = "overlay_mode";
+    static final String OVERLAY_MODE_BAR = "bar";
+    static final String OVERLAY_MODE_FACTORY_HVAC = "factory_hvac";
     static final String KEY_PASSENGER_HEAT = "control_passenger_heat";
     static final String KEY_TEMP = "control_temp";
     static final String KEY_FAN = "control_fan";

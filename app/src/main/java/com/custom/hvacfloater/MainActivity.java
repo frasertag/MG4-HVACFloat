@@ -3,6 +3,7 @@ package com.custom.hvacfloater;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.Manifest;
+import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.Intent;
@@ -27,6 +28,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -44,17 +46,19 @@ import java.net.URL;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_WRITE_STORAGE_FOR_UPDATE = 41;
-    private static final String CURRENT_VERSION = "0.5.2";
+    private static final String CURRENT_VERSION = "0.5.3";
     private static final String PUBLISHED_VERSION = "Published version: " + CURRENT_VERSION;
     private static final String RELEASES_LATEST_URL = "https://api.github.com/repos/frasertag/MG4-HVACFloat/releases/latest";
 
     private SharedPreferences prefs;
     private TextView themeStatus;
+    private TextView overlayModeStatus;
     private TextView barStyleStatus;
     private TextView controlsStatus;
     private TextView autostartStatus;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private UpdateInfo pendingUpdate;
+    private boolean updatePromptShowing;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -156,7 +160,7 @@ public class MainActivity extends Activity {
         updates.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                checkForUpdates();
+                checkForUpdates(true);
             }
         });
         leftColumn.addView(updates);
@@ -184,6 +188,18 @@ public class MainActivity extends Activity {
         themeStatus = makeStatusText();
         rightColumn.addView(themeStatus);
         updateThemeStatus();
+
+        Button overlayMode = makeButton("Overlay Mode");
+        overlayMode.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showOverlayModeDialog();
+            }
+        });
+        rightColumn.addView(overlayMode);
+        overlayModeStatus = makeStatusText();
+        rightColumn.addView(overlayModeStatus);
+        updateOverlayModeStatus();
 
         Button barStyle = makeButton("Bar Colour");
         barStyle.setOnClickListener(new View.OnClickListener() {
@@ -217,6 +233,12 @@ public class MainActivity extends Activity {
         shell.addView(version, versionParams);
 
         setContentView(shell);
+        mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkForUpdates(false);
+            }
+        }, 900);
     }
 
     private LinearLayout makeColumn() {
@@ -287,6 +309,35 @@ public class MainActivity extends Activity {
                 Toast.makeText(MainActivity.this, "Theme saved", Toast.LENGTH_SHORT).show();
                         dialogInterface.dismiss();
             }
+                })
+                .show();
+    }
+
+    private void showOverlayModeDialog() {
+        final String[] labels = new String[] {"Bar", "Factory HVAC"};
+        final String[] values = new String[] {
+                HvacTheme.OVERLAY_MODE_BAR,
+                HvacTheme.OVERLAY_MODE_FACTORY_HVAC
+        };
+        String current = prefs.getString(HvacTheme.KEY_OVERLAY_MODE, HvacTheme.OVERLAY_MODE_BAR);
+        int selected = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(current)) {
+                selected = i;
+                break;
+            }
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Overlay Mode")
+                .setSingleChoiceItems(labels, selected, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int which) {
+                        prefs.edit().putString(HvacTheme.KEY_OVERLAY_MODE, values[which]).apply();
+                        updateOverlayModeStatus();
+                        refreshOverlayMode();
+                        Toast.makeText(MainActivity.this, "Overlay mode saved", Toast.LENGTH_SHORT).show();
+                        dialogInterface.dismiss();
+                    }
                 })
                 .show();
     }
@@ -558,6 +609,16 @@ public class MainActivity extends Activity {
         themeStatus.setText(label);
     }
 
+    private void updateOverlayModeStatus() {
+        if (overlayModeStatus == null) return;
+        String mode = prefs.getString(HvacTheme.KEY_OVERLAY_MODE, HvacTheme.OVERLAY_MODE_BAR);
+        if (HvacTheme.OVERLAY_MODE_FACTORY_HVAC.equals(mode)) {
+            overlayModeStatus.setText("Mode: Factory HVAC");
+        } else {
+            overlayModeStatus.setText("Mode: Bar");
+        }
+    }
+
     private void updateBarStyleStatus() {
         if (barStyleStatus == null) return;
         barStyleStatus.setText("Bar: " + getBarColor() + " / " + getBarOpacity() + "%");
@@ -658,6 +719,15 @@ public class MainActivity extends Activity {
         startService(intent);
     }
 
+    private void refreshOverlayMode() {
+        if (!OverlayService.isOverlayActive()) {
+            return;
+        }
+        Intent intent = new Intent(this, OverlayService.class);
+        intent.putExtra(OverlayService.EXTRA_REFRESH_OVERLAY, true);
+        startService(intent);
+    }
+
     private void updateControlsStatus() {
         if (controlsStatus == null) return;
         int count = 0;
@@ -708,23 +778,35 @@ public class MainActivity extends Activity {
     }
 
     private void checkForUpdates() {
-        Toast.makeText(this, "Checking for updates", Toast.LENGTH_SHORT).show();
+        checkForUpdates(true);
+    }
+
+    private void checkForUpdates(final boolean manual) {
+        if (manual) {
+            Toast.makeText(this, "Checking for updates", Toast.LENGTH_SHORT).show();
+        }
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
                     UpdateInfo info = fetchLatestRelease();
                     if (info == null || info.version == null || info.apkUrl == null) {
-                        showToast("No downloadable update found");
+                        if (manual) {
+                            showToast("No downloadable update found");
+                        }
                         return;
                     }
                     if (compareVersions(info.version, CURRENT_VERSION) <= 0) {
-                        showToast("Already on latest version");
+                        if (manual) {
+                            showToast("Already on latest version");
+                        }
                         return;
                     }
                     showUpdateDialog(info);
                 } catch (Throwable throwable) {
-                    showToast("Update check failed");
+                    if (manual) {
+                        showToast("Update check failed");
+                    }
                 }
             }
         }).start();
@@ -743,6 +825,7 @@ public class MainActivity extends Activity {
             JSONObject root = new JSONObject(json);
             String tag = root.optString("tag_name", "");
             String version = normalizeVersion(tag);
+            String releaseNotes = root.optString("body", "");
             JSONArray assets = root.optJSONArray("assets");
             String apkUrl = null;
             String apkName = null;
@@ -759,7 +842,7 @@ public class MainActivity extends Activity {
                 }
             }
             if (version.length() == 0 || apkUrl == null) return null;
-            return new UpdateInfo(version, apkName, apkUrl);
+            return new UpdateInfo(version, apkName, apkUrl, releaseNotes);
         } finally {
             if (connection != null) {
                 connection.disconnect();
@@ -785,19 +868,143 @@ public class MainActivity extends Activity {
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("Update available")
-                        .setMessage("Version " + info.version + " is available. Download APK to Downloads?")
-                        .setPositiveButton("Download", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialogInterface, int which) {
-                                downloadUpdate(info);
-                            }
-                        })
-                        .setNegativeButton("Cancel", null)
-                        .show();
+                if (updatePromptShowing || isFinishing()) {
+                    return;
+                }
+                updatePromptShowing = true;
+                final Dialog dialog = new Dialog(MainActivity.this);
+                dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+                LinearLayout panel = new LinearLayout(MainActivity.this);
+                panel.setOrientation(LinearLayout.VERTICAL);
+                panel.setPadding(34, 28, 34, 28);
+                panel.setBackground(makeUpdatePanelBackground(0xf2222224, 18, 0xff55f0d8));
+
+                TextView title = new TextView(MainActivity.this);
+                title.setText("UPDATE AVAILABLE");
+                title.setTextColor(Color.WHITE);
+                title.setTextSize(30);
+                title.setTypeface(Typeface.DEFAULT_BOLD);
+                title.setGravity(Gravity.CENTER);
+                title.setShadowLayer(8f, 0f, 0f, 0xaa000000);
+                panel.addView(title, new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT));
+
+                TextView version = new TextView(MainActivity.this);
+                version.setText("HVAC Float " + info.version + " is ready");
+                version.setTextColor(0xff55f0d8);
+                version.setTextSize(22);
+                version.setTypeface(Typeface.DEFAULT_BOLD);
+                version.setGravity(Gravity.CENTER);
+                LinearLayout.LayoutParams versionParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                versionParams.setMargins(0, 10, 0, 18);
+                panel.addView(version, versionParams);
+
+                TextView notesTitle = new TextView(MainActivity.this);
+                notesTitle.setText("Release notes");
+                notesTitle.setTextColor(Color.WHITE);
+                notesTitle.setTextSize(18);
+                notesTitle.setTypeface(Typeface.DEFAULT_BOLD);
+                panel.addView(notesTitle);
+
+                TextView notes = new TextView(MainActivity.this);
+                notes.setText(cleanReleaseNotes(info.releaseNotes));
+                notes.setTextColor(0xffe8e8ee);
+                notes.setTextSize(16);
+                notes.setLineSpacing(3f, 1.05f);
+                notes.setPadding(18, 14, 18, 14);
+                notes.setBackground(makeUpdatePanelBackground(0xd9141418, 10, 0x55ffffff));
+
+                ScrollView scroll = new ScrollView(MainActivity.this);
+                scroll.addView(notes);
+                LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        230);
+                scrollParams.setMargins(0, 8, 0, 22);
+                panel.addView(scroll, scrollParams);
+
+                LinearLayout buttons = new LinearLayout(MainActivity.this);
+                buttons.setOrientation(LinearLayout.HORIZONTAL);
+                buttons.setGravity(Gravity.CENTER);
+
+                Button cancel = makeUpdateDialogButton("Not Now");
+                cancel.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        dialog.dismiss();
+                    }
+                });
+
+                Button download = makeUpdateDialogButton("Download");
+                download.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        dialog.dismiss();
+                        downloadUpdate(info);
+                    }
+                });
+
+                buttons.addView(cancel);
+                buttons.addView(download);
+                panel.addView(buttons, new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT));
+
+                dialog.setContentView(panel);
+                dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    @Override
+                    public void onDismiss(DialogInterface dialogInterface) {
+                        updatePromptShowing = false;
+                    }
+                });
+                Window window = dialog.getWindow();
+                if (window != null) {
+                    window.setBackgroundDrawableResource(android.R.color.transparent);
+                }
+                dialog.show();
+                Window shownWindow = dialog.getWindow();
+                if (shownWindow != null) {
+                    shownWindow.setLayout(760, LinearLayout.LayoutParams.WRAP_CONTENT);
+                }
             }
         });
+    }
+
+    private Button makeUpdateDialogButton(String label) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(18);
+        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setAllCaps(false);
+        button.setBackground(makeUpdatePanelBackground(0xd9212120, 8, 0x99ffffff));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(210, 66);
+        params.setMargins(10, 0, 10, 0);
+        button.setLayoutParams(params);
+        return button;
+    }
+
+    private GradientDrawable makeUpdatePanelBackground(int color, int radius, int strokeColor) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(radius);
+        drawable.setStroke(1, strokeColor);
+        return drawable;
+    }
+
+    private String cleanReleaseNotes(String notes) {
+        if (notes == null || notes.trim().length() == 0) {
+            return "No release notes supplied.";
+        }
+        return notes
+                .replace("\r\n", "\n")
+                .replace("###", "")
+                .replace("##", "")
+                .replace("#", "")
+                .trim();
     }
 
     private void downloadUpdate(UpdateInfo info) {
@@ -923,17 +1130,65 @@ public class MainActivity extends Activity {
     }
 
     private void showDownloadFallback(final UpdateInfo info) {
-        new AlertDialog.Builder(this)
-                .setTitle("Download failed")
-                .setMessage("The system download manager refused the APK download. Open the GitHub download link instead?")
-                .setPositiveButton("Open Link", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int which) {
-                        openUpdateLink(info);
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(34, 28, 34, 28);
+        panel.setBackground(makeUpdatePanelBackground(0xf2222224, 18, 0xffff8f4a));
+
+        TextView title = new TextView(this);
+        title.setText("DOWNLOAD FAILED");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(28);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView message = new TextView(this);
+        message.setText("The head unit refused the direct APK download. You can open the GitHub download link instead.");
+        message.setTextColor(0xffe8e8ee);
+        message.setTextSize(17);
+        message.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams messageParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        messageParams.setMargins(0, 18, 0, 24);
+        panel.addView(message, messageParams);
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        Button open = makeUpdateDialogButton("Open Link");
+        open.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+                openUpdateLink(info);
+            }
+        });
+        buttons.addView(cancel);
+        buttons.addView(open);
+        panel.addView(buttons);
+
+        dialog.setContentView(panel);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+        }
+        dialog.show();
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            shownWindow.setLayout(680, LinearLayout.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     private void openUpdateLink(UpdateInfo info) {
@@ -999,11 +1254,13 @@ public class MainActivity extends Activity {
         final String version;
         final String apkName;
         final String apkUrl;
+        final String releaseNotes;
 
-        UpdateInfo(String version, String apkName, String apkUrl) {
+        UpdateInfo(String version, String apkName, String apkUrl, String releaseNotes) {
             this.version = version;
             this.apkName = apkName;
             this.apkUrl = apkUrl;
+            this.releaseNotes = releaseNotes;
         }
     }
 }
