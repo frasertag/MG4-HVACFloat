@@ -5,7 +5,7 @@ Floating HVAC overlay app for the MG4 head unit.
 #### This app was built on the 2024 MG4 Xpower, Your car version may or may not function with this application. 
 #### Feedback welcome
 
-Current app version: `0.5.3`
+Current app version: `0.5.4`
 
 ## Current Features
 
@@ -18,10 +18,12 @@ Current app version: `0.5.3`
 - Double-tap hidden `HVAC` handle to restore the bar
 - Optional settings gear button on the bar to open the app settings screen
 - Selectable controls, so the bar can be compact or full
-- Themeable expanded bar background colour and opacity
+- Themeable expanded bar and hidden handle background colour and opacity
+- Configurable hidden `HVAC` handle size, corner shape, background visibility, and text visibility
 - Overlay mode selection:
   - `Bar` keeps the current HVAC Float control bar.
   - `Factory HVAC` keeps only the hidden square handle; double-tap toggles the factory SystemUI HVAC overlay open/closed.
+  - Factory HVAC open state is treated as temporary because SystemUI does not expose a real open/closed callback.
 - Autostart modes:
   - `Autostart Full`
   - `Autostart Hidden`
@@ -46,6 +48,7 @@ Current app version: `0.5.3`
 - Icon Set 1 now includes centered HVAC-style icons for temperature, fan, air loop, air flow, defrost, heated seats, and heated steering wheel.
 - Icon Set 1 uses OG-style heated seat ring icons and an adaptive taller bar so the larger icons are not clipped.
 - The full expanded overlay can be moved by long-press dragging controls, not only from hidden mode.
+- Hidden overlay handles still own their touch area; Android does not pass the same single tap through to apps underneath while the overlay is touchable.
 
 ## Settings
 
@@ -63,15 +66,24 @@ The main app screen currently provides:
 - `Select Theme`
   - Theme plumbing exists, and Icon Set 1 is now available.
   - `TEXT` is the sane/default mode.
+  - Uses the custom dark dialog style and applies theme changes to the live overlay immediately.
 - `Bar Colour`
-  - Adjust the expanded overlay bar background using RGB sliders, a `#RRGGBB` field, and 0-100% opacity.
+  - Adjust the expanded overlay bar and hidden handle background using RGB sliders, a `#RRGGBB` field, and 0-100% opacity.
+  - Tapping the colour preview opens an in-app colour picker with swatches and RGB sliders.
+- `HVAC Icon Style`
+  - Adjust the hidden/factory HVAC handle width, height, corner radius, background visibility, and text visibility.
+  - Uses a scrollable dark custom editor so large invisible touch targets can still be configured cleanly.
+  - Background and text can both be hidden while leaving the touch target active for easier double-tapping.
 - `Overlay Mode`
   - Choose between the normal HVAC Float bar and the factory HVAC overlay launcher handle.
+  - Uses the custom dark dialog style.
 - `Select Controls`
   - Choose which HVAC groups appear on the floating bar.
   - `HIDE` is always shown.
+  - Uses the custom dark dialog style.
 - `Autostart Mode`
   - Controls boot behaviour.
+  - Uses the custom dark dialog style.
 - `Check Updates`
   - Manually checks GitHub releases and downloads newer APK releases to Downloads.
 - `Overlay Permission`
@@ -89,13 +101,13 @@ Build from this directory:
 The build script outputs:
 
 ```text
-dist\MG4-HVACFloat-V0.5.3.apk
+dist\MG4-HVACFloat-V0.5.4.apk
 ```
 
 Latest named build:
 
 ```text
-dist\MG4-HVACFloat-V0.5.3.apk
+dist\MG4-HVACFloat-V0.5.4.apk
 ```
 
 GitHub releases attach the APK and matching `.sha256` checksum as release assets. APK files in `dist` are local build outputs and are not committed to the repository.

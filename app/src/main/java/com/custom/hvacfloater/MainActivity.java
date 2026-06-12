@@ -25,6 +25,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -46,7 +47,7 @@ import java.net.URL;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_WRITE_STORAGE_FOR_UPDATE = 41;
-    private static final String CURRENT_VERSION = "0.5.3";
+    private static final String CURRENT_VERSION = "0.5.4";
     private static final String PUBLISHED_VERSION = "Published version: " + CURRENT_VERSION;
     private static final String RELEASES_LATEST_URL = "https://api.github.com/repos/frasertag/MG4-HVACFloat/releases/latest";
 
@@ -54,6 +55,7 @@ public class MainActivity extends Activity {
     private TextView themeStatus;
     private TextView overlayModeStatus;
     private TextView barStyleStatus;
+    private TextView handleStyleStatus;
     private TextView controlsStatus;
     private TextView autostartStatus;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -213,6 +215,18 @@ public class MainActivity extends Activity {
         rightColumn.addView(barStyleStatus);
         updateBarStyleStatus();
 
+        Button handleStyle = makeButton("HVAC Icon Style");
+        handleStyle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showHandleStyleDialog();
+            }
+        });
+        rightColumn.addView(handleStyle);
+        handleStyleStatus = makeStatusText();
+        rightColumn.addView(handleStyleStatus);
+        updateHandleStyleStatus();
+
         FrameLayout shell = new FrameLayout(this);
         shell.addView(root, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -292,25 +306,60 @@ public class MainActivity extends Activity {
         final String[] labels = new String[] {"TEXT", "ICON Set 1"};
         final String[] values = new String[] {HvacTheme.TEXT, HvacTheme.ICON_SET_1};
         String current = prefs.getString(HvacTheme.KEY_THEME, HvacTheme.TEXT);
-        int selected = 0;
+        final int[] selected = new int[] {0};
         for (int i = 0; i < values.length; i++) {
             if (values[i].equals(current)) {
-                selected = i;
+                selected[0] = i;
                 break;
             }
         }
-        new AlertDialog.Builder(this)
-                .setTitle("Select Theme")
-                .setSingleChoiceItems(labels, selected, new DialogInterface.OnClickListener() {
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel = makeStyledDialogPanel("SELECT THEME", "Overlay button style");
+
+        LinearLayout choices = new LinearLayout(this);
+        choices.setOrientation(LinearLayout.VERTICAL);
+        choices.setPadding(20, 12, 20, 12);
+        for (int i = 0; i < labels.length; i++) {
+            final int index = i;
+            final Button option = makeUpdateDialogButton(labels[i]);
+            option.setTextSize(20);
+            option.setBackground(makeUpdatePanelBackground(
+                    index == selected[0] ? 0xe055f0d8 : 0xd9212120,
+                    8,
+                    0x99ffffff));
+            option.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    prefs.edit().putString(HvacTheme.KEY_THEME, values[index]).apply();
+                    updateThemeStatus();
+                    refreshOverlayMode();
+                    Toast.makeText(MainActivity.this, "Theme saved", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                }
+            });
+            LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    72);
+            optionParams.setMargins(0, 8, 0, 8);
+            choices.addView(option, optionParams);
+        }
+        panel.addView(choices);
+
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
             @Override
-                    public void onClick(DialogInterface dialogInterface, int which) {
-                prefs.edit().putString(HvacTheme.KEY_THEME, values[which]).apply();
-                updateThemeStatus();
-                Toast.makeText(MainActivity.this, "Theme saved", Toast.LENGTH_SHORT).show();
-                        dialogInterface.dismiss();
+            public void onClick(View view) {
+                dialog.dismiss();
             }
-                })
-                .show();
+        });
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        buttons.addView(cancel);
+        panel.addView(buttons);
+
+        showStyledDialog(dialog, panel, 560);
     }
 
     private void showOverlayModeDialog() {
@@ -320,41 +369,80 @@ public class MainActivity extends Activity {
                 HvacTheme.OVERLAY_MODE_FACTORY_HVAC
         };
         String current = prefs.getString(HvacTheme.KEY_OVERLAY_MODE, HvacTheme.OVERLAY_MODE_BAR);
-        int selected = 0;
+        final int[] selected = new int[] {0};
         for (int i = 0; i < values.length; i++) {
             if (values[i].equals(current)) {
-                selected = i;
+                selected[0] = i;
                 break;
             }
         }
-        new AlertDialog.Builder(this)
-                .setTitle("Overlay Mode")
-                .setSingleChoiceItems(labels, selected, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int which) {
-                        prefs.edit().putString(HvacTheme.KEY_OVERLAY_MODE, values[which]).apply();
-                        updateOverlayModeStatus();
-                        refreshOverlayMode();
-                        Toast.makeText(MainActivity.this, "Overlay mode saved", Toast.LENGTH_SHORT).show();
-                        dialogInterface.dismiss();
-                    }
-                })
-                .show();
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel = makeStyledDialogPanel("OVERLAY MODE", "Choose the floating HVAC behaviour");
+
+        LinearLayout choices = new LinearLayout(this);
+        choices.setOrientation(LinearLayout.VERTICAL);
+        choices.setPadding(20, 12, 20, 12);
+        for (int i = 0; i < labels.length; i++) {
+            final int index = i;
+            final Button option = makeUpdateDialogButton(labels[i]);
+            option.setTextSize(20);
+            option.setBackground(makeUpdatePanelBackground(
+                    index == selected[0] ? 0xe055f0d8 : 0xd9212120,
+                    8,
+                    0x99ffffff));
+            option.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    prefs.edit().putString(HvacTheme.KEY_OVERLAY_MODE, values[index]).apply();
+                    updateOverlayModeStatus();
+                    refreshOverlayMode();
+                    Toast.makeText(MainActivity.this, "Overlay mode saved", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                }
+            });
+            LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    72);
+            optionParams.setMargins(0, 8, 0, 8);
+            choices.addView(option, optionParams);
+        }
+        panel.addView(choices);
+
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        buttons.addView(cancel);
+        panel.addView(buttons);
+
+        showStyledDialog(dialog, panel, 620);
     }
 
     private void showBarStyleDialog() {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
         final int[] rgb = parseColorParts(getBarColor());
         final int[] opacity = new int[] {getBarOpacity()};
         final boolean[] updating = new boolean[] {false};
 
+        LinearLayout panel = makeStyledDialogPanel("BAR COLOUR", "Expanded bar and hidden handle");
+
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(36, 18, 36, 0);
+        layout.setPadding(20, 18, 20, 18);
 
         final View preview = new View(this);
         LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                54);
+                72);
         previewParams.setMargins(0, 0, 0, 18);
         layout.addView(preview, previewParams);
 
@@ -363,26 +451,32 @@ public class MainActivity extends Activity {
         hexInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
         hexInput.setText(formatHex(rgb[0], rgb[1], rgb[2]));
         hexInput.setSelectAllOnFocus(true);
+        hexInput.setTextColor(Color.WHITE);
+        hexInput.setTextSize(20);
+        hexInput.setTypeface(Typeface.DEFAULT_BOLD);
+        hexInput.setGravity(Gravity.CENTER);
+        hexInput.setBackground(makeUpdatePanelBackground(0xd9212120, 8, 0x99ffffff));
+        hexInput.setPadding(10, 0, 10, 0);
         layout.addView(hexInput, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
+                64));
 
-        final TextView redLabel = makeDialogLabel("");
+        final TextView redLabel = makeDarkDialogLabel("");
         final SeekBar red = makeColorSeekBar(rgb[0]);
         layout.addView(redLabel);
         layout.addView(red);
 
-        final TextView greenLabel = makeDialogLabel("");
+        final TextView greenLabel = makeDarkDialogLabel("");
         final SeekBar green = makeColorSeekBar(rgb[1]);
         layout.addView(greenLabel);
         layout.addView(green);
 
-        final TextView blueLabel = makeDialogLabel("");
+        final TextView blueLabel = makeDarkDialogLabel("");
         final SeekBar blue = makeColorSeekBar(rgb[2]);
         layout.addView(blueLabel);
         layout.addView(blue);
 
-        final TextView opacityLabel = makeDialogLabel("");
+        final TextView opacityLabel = makeDarkDialogLabel("");
         final SeekBar opacitySeek = new SeekBar(this);
         opacitySeek.setMax(100);
         opacitySeek.setProgress(opacity[0]);
@@ -403,6 +497,13 @@ public class MainActivity extends Activity {
             }
         };
         updatePreview.run();
+
+        preview.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showColorPickerDialog(rgb, hexInput, red, green, blue, updatePreview, updating);
+            }
+        });
 
         TextWatcher watcher = new TextWatcher() {
             @Override
@@ -478,41 +579,284 @@ public class MainActivity extends Activity {
             }
         });
 
-        new AlertDialog.Builder(this)
-                .setTitle("Bar Colour")
-                .setView(layout)
-                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int which) {
-                        int[] parsed = parseColorParts(hexInput.getText().toString());
-                        if (parsed != null) {
-                            rgb[0] = parsed[0];
-                            rgb[1] = parsed[1];
-                            rgb[2] = parsed[2];
-                        }
-                        prefs.edit()
-                                .putString(HvacTheme.KEY_BAR_COLOR, formatHex(rgb[0], rgb[1], rgb[2]))
-                                .putInt(HvacTheme.KEY_BAR_OPACITY, opacity[0])
-                                .apply();
-                        updateBarStyleStatus();
-                        refreshOverlayBarStyle();
-                        Toast.makeText(MainActivity.this, "Bar colour saved", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNeutralButton("Reset", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int which) {
-                        prefs.edit()
-                                .putString(HvacTheme.KEY_BAR_COLOR, HvacTheme.DEFAULT_BAR_COLOR)
-                                .putInt(HvacTheme.KEY_BAR_OPACITY, HvacTheme.DEFAULT_BAR_OPACITY)
-                                .apply();
-                        updateBarStyleStatus();
-                        refreshOverlayBarStyle();
-                        Toast.makeText(MainActivity.this, "Bar colour reset", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(layout);
+        panel.addView(scroll, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                480));
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        Button reset = makeUpdateDialogButton("Reset");
+        reset.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                prefs.edit()
+                        .putString(HvacTheme.KEY_BAR_COLOR, HvacTheme.DEFAULT_BAR_COLOR)
+                        .putInt(HvacTheme.KEY_BAR_OPACITY, HvacTheme.DEFAULT_BAR_OPACITY)
+                        .apply();
+                updateBarStyleStatus();
+                refreshOverlayBarStyle();
+                Toast.makeText(MainActivity.this, "Bar colour reset", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
+        });
+        Button save = makeUpdateDialogButton("Save");
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int[] parsed = parseColorParts(hexInput.getText().toString());
+                if (parsed != null) {
+                    rgb[0] = parsed[0];
+                    rgb[1] = parsed[1];
+                    rgb[2] = parsed[2];
+                }
+                prefs.edit()
+                        .putString(HvacTheme.KEY_BAR_COLOR, formatHex(rgb[0], rgb[1], rgb[2]))
+                        .putInt(HvacTheme.KEY_BAR_OPACITY, opacity[0])
+                        .apply();
+                updateBarStyleStatus();
+                refreshOverlayBarStyle();
+                Toast.makeText(MainActivity.this, "Bar colour saved", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
+        });
+        buttons.addView(cancel);
+        buttons.addView(reset);
+        buttons.addView(save);
+        panel.addView(buttons);
+
+        showStyledDialog(dialog, panel, 760);
+    }
+
+    private void showHandleStyleDialog() {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        final int[] width = new int[] {getHandleWidth()};
+        final int[] height = new int[] {getHandleHeight()};
+        final int[] radius = new int[] {getHandleRadius()};
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(34, 28, 34, 26);
+        panel.setBackground(makeUpdatePanelBackground(0xf2222224, 18, 0xff55f0d8));
+
+        TextView title = new TextView(this);
+        title.setText("HVAC ICON STYLE");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(28);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        title.setShadowLayer(8f, 0f, 0f, 0xaa000000);
+        panel.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Hidden and factory HVAC handle");
+        subtitle.setTextColor(0xff55f0d8);
+        subtitle.setTextSize(17);
+        subtitle.setTypeface(Typeface.DEFAULT_BOLD);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        subtitleParams.setMargins(0, 8, 0, 18);
+        panel.addView(subtitle, subtitleParams);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(20, 18, 20, 18);
+
+        FrameLayout previewShell = new FrameLayout(this);
+        previewShell.setPadding(18, 18, 18, 18);
+        previewShell.setBackground(makeUpdatePanelBackground(0xa9141418, 12, 0x55ffffff));
+        final View preview = new View(this);
+        FrameLayout.LayoutParams previewParams = new FrameLayout.LayoutParams(width[0], height[0], Gravity.CENTER);
+        previewShell.addView(preview, previewParams);
+        LinearLayout.LayoutParams previewShellParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                230);
+        previewShellParams.setMargins(0, 0, 0, 18);
+        layout.addView(previewShell, previewShellParams);
+
+        final CheckBox visible = new CheckBox(this);
+        visible.setText("Show background box");
+        visible.setTextColor(Color.WHITE);
+        visible.setTextSize(18);
+        visible.setTypeface(Typeface.DEFAULT_BOLD);
+        visible.setChecked(isHandleBackgroundVisible());
+        layout.addView(visible);
+
+        final CheckBox textVisible = new CheckBox(this);
+        textVisible.setText("Show text");
+        textVisible.setTextColor(Color.WHITE);
+        textVisible.setTextSize(18);
+        textVisible.setTypeface(Typeface.DEFAULT_BOLD);
+        textVisible.setChecked(isHandleTextVisible());
+        layout.addView(textVisible);
+
+        final TextView widthLabel = makeDarkDialogLabel("");
+        final SeekBar widthSeek = new SeekBar(this);
+        widthSeek.setMax(584);
+        widthSeek.setProgress(width[0] - 56);
+        layout.addView(widthLabel);
+        layout.addView(widthSeek);
+
+        final TextView heightLabel = makeDarkDialogLabel("");
+        final SeekBar heightSeek = new SeekBar(this);
+        heightSeek.setMax(304);
+        heightSeek.setProgress(height[0] - 56);
+        layout.addView(heightLabel);
+        layout.addView(heightSeek);
+
+        final TextView radiusLabel = makeDarkDialogLabel("");
+        final SeekBar radiusSeek = new SeekBar(this);
+        radiusSeek.setMax(120);
+        radiusSeek.setProgress(radius[0]);
+        layout.addView(radiusLabel);
+        layout.addView(radiusSeek);
+
+        final Runnable updatePreview = new Runnable() {
+            @Override
+            public void run() {
+                widthLabel.setText("Width: " + width[0] + "dp");
+                heightLabel.setText("Height: " + height[0] + "dp");
+                radiusLabel.setText("Corners: " + radius[0] + "dp");
+
+                FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) preview.getLayoutParams();
+                params.width = width[0];
+                params.height = height[0];
+                params.gravity = Gravity.CENTER;
+                preview.setLayoutParams(params);
+
+                LinearLayout.LayoutParams shellParams = (LinearLayout.LayoutParams) previewShell.getLayoutParams();
+                shellParams.height = Math.max(230, height[0] + 36);
+                previewShell.setLayoutParams(shellParams);
+
+                if (visible.isChecked()) {
+                    preview.setBackground(makePreviewBackground(
+                            composeColorFromHex(getBarColor(), getBarOpacity()),
+                            radius[0],
+                            0x99ffffff));
+                } else {
+                    preview.setBackground(makePreviewBackground(0x00000000, radius[0], 0x22ffffff));
+                }
+            }
+        };
+        updatePreview.run();
+
+        SeekBar.OnSeekBarChangeListener seekListener = new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                width[0] = widthSeek.getProgress() + 56;
+                height[0] = heightSeek.getProgress() + 56;
+                radius[0] = radiusSeek.getProgress();
+                updatePreview.run();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        };
+        widthSeek.setOnSeekBarChangeListener(seekListener);
+        heightSeek.setOnSeekBarChangeListener(seekListener);
+        radiusSeek.setOnSeekBarChangeListener(seekListener);
+        visible.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                updatePreview.run();
+            }
+        });
+        textVisible.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                updatePreview.run();
+            }
+        });
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(layout);
+        panel.addView(scroll, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                430));
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.CENTER);
+
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        Button reset = makeUpdateDialogButton("Reset");
+        reset.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                prefs.edit()
+                        .putInt(HvacTheme.KEY_HANDLE_WIDTH, HvacTheme.DEFAULT_HANDLE_SIZE)
+                        .putInt(HvacTheme.KEY_HANDLE_HEIGHT, HvacTheme.DEFAULT_HANDLE_SIZE)
+                        .putInt(HvacTheme.KEY_HANDLE_RADIUS, HvacTheme.DEFAULT_HANDLE_RADIUS)
+                        .putBoolean(HvacTheme.KEY_HANDLE_BACKGROUND_VISIBLE, true)
+                        .putBoolean(HvacTheme.KEY_HANDLE_TEXT_VISIBLE, true)
+                        .apply();
+                updateHandleStyleStatus();
+                refreshOverlayMode();
+                Toast.makeText(MainActivity.this, "HVAC icon style reset", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
+        });
+        Button save = makeUpdateDialogButton("Save");
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                prefs.edit()
+                        .putInt(HvacTheme.KEY_HANDLE_WIDTH, width[0])
+                        .putInt(HvacTheme.KEY_HANDLE_HEIGHT, height[0])
+                        .putInt(HvacTheme.KEY_HANDLE_RADIUS, radius[0])
+                        .putBoolean(HvacTheme.KEY_HANDLE_BACKGROUND_VISIBLE, visible.isChecked())
+                        .putBoolean(HvacTheme.KEY_HANDLE_TEXT_VISIBLE, textVisible.isChecked())
+                        .apply();
+                updateHandleStyleStatus();
+                refreshOverlayMode();
+                Toast.makeText(MainActivity.this, "HVAC icon style saved", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
+        });
+        buttons.addView(cancel);
+        buttons.addView(reset);
+        buttons.addView(save);
+        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        buttonParams.setMargins(0, 20, 0, 0);
+        panel.addView(buttons, buttonParams);
+
+        dialog.setContentView(panel);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+        }
+        dialog.show();
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            shownWindow.setLayout(920, LinearLayout.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     private void showControlsDialog() {
@@ -520,7 +864,7 @@ public class MainActivity extends Activity {
                 "Passenger Heat",
                 "Temp",
                 "Fan",
-                "AUTO",
+                "Auto Fan",
                 "Air Loop",
                 "Air Flow",
                 "Defrost",
@@ -544,28 +888,72 @@ public class MainActivity extends Activity {
         for (int i = 0; i < keys.length; i++) {
             checked[i] = prefs.getBoolean(keys[i], true);
         }
-        new AlertDialog.Builder(this)
-                .setTitle("Select Controls")
-                .setMultiChoiceItems(labels, checked, new DialogInterface.OnMultiChoiceClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int which, boolean isChecked) {
-                        checked[which] = isChecked;
-                    }
-                })
-                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int which) {
-                        SharedPreferences.Editor editor = prefs.edit();
-                        for (int i = 0; i < keys.length; i++) {
-                            editor.putBoolean(keys[i], checked[i]);
-                        }
-                        editor.apply();
-                        updateControlsStatus();
-                        Toast.makeText(MainActivity.this, "Controls saved", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel = makeStyledDialogPanel("SELECT CONTROLS", "Choose what appears on the floating bar");
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(20, 12, 20, 12);
+        for (int i = 0; i < labels.length; i++) {
+            final int index = i;
+            CheckBox box = new CheckBox(this);
+            box.setText(labels[i]);
+            box.setTextColor(Color.WHITE);
+            box.setTextSize(19);
+            box.setTypeface(Typeface.DEFAULT_BOLD);
+            box.setChecked(checked[i]);
+            box.setPadding(8, 8, 8, 8);
+            box.setBackground(makeUpdatePanelBackground(0x66212120, 8, 0x33ffffff));
+            box.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    checked[index] = ((CheckBox) view).isChecked();
+                }
+            });
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    58);
+            rowParams.setMargins(0, 5, 0, 5);
+            list.addView(box, rowParams);
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(list);
+        panel.addView(scroll, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                430));
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        Button save = makeUpdateDialogButton("Save");
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                SharedPreferences.Editor editor = prefs.edit();
+                for (int i = 0; i < keys.length; i++) {
+                    editor.putBoolean(keys[i], checked[i]);
+                }
+                editor.apply();
+                updateControlsStatus();
+                refreshOverlayMode();
+                Toast.makeText(MainActivity.this, "Controls saved", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
+        });
+        buttons.addView(cancel);
+        buttons.addView(save);
+        panel.addView(buttons);
+
+        showStyledDialog(dialog, panel, 680);
     }
 
     private void showAutostartDialog() {
@@ -576,25 +964,59 @@ public class MainActivity extends Activity {
                 HvacTheme.AUTOSTART_OFF
         };
         String current = prefs.getString(HvacTheme.KEY_AUTOSTART, HvacTheme.AUTOSTART_OFF);
-        int selected = 2;
+        final int[] selected = new int[] {2};
         for (int i = 0; i < values.length; i++) {
             if (values[i].equals(current)) {
-                selected = i;
+                selected[0] = i;
                 break;
             }
         }
-        new AlertDialog.Builder(this)
-                .setTitle("Autostart")
-                .setSingleChoiceItems(labels, selected, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int which) {
-                        prefs.edit().putString(HvacTheme.KEY_AUTOSTART, values[which]).apply();
-                        updateAutostartStatus();
-                        Toast.makeText(MainActivity.this, "Autostart saved", Toast.LENGTH_SHORT).show();
-                        dialogInterface.dismiss();
-                    }
-                })
-                .show();
+
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel = makeStyledDialogPanel("AUTOSTART", "Choose startup behaviour");
+
+        LinearLayout choices = new LinearLayout(this);
+        choices.setOrientation(LinearLayout.VERTICAL);
+        choices.setPadding(20, 12, 20, 12);
+        for (int i = 0; i < labels.length; i++) {
+            final int index = i;
+            final Button option = makeUpdateDialogButton(labels[i]);
+            option.setTextSize(20);
+            option.setBackground(makeUpdatePanelBackground(
+                    index == selected[0] ? 0xe055f0d8 : 0xd9212120,
+                    8,
+                    0x99ffffff));
+            option.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    prefs.edit().putString(HvacTheme.KEY_AUTOSTART, values[index]).apply();
+                    updateAutostartStatus();
+                    Toast.makeText(MainActivity.this, "Autostart saved", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                }
+            });
+            LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    72);
+            optionParams.setMargins(0, 8, 0, 8);
+            choices.addView(option, optionParams);
+        }
+        panel.addView(choices);
+
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        buttons.addView(cancel);
+        panel.addView(buttons);
+
+        showStyledDialog(dialog, panel, 620);
     }
 
     private void updateThemeStatus() {
@@ -624,6 +1046,16 @@ public class MainActivity extends Activity {
         barStyleStatus.setText("Bar: " + getBarColor() + " / " + getBarOpacity() + "%");
     }
 
+    private void updateHandleStyleStatus() {
+        if (handleStyleStatus == null) return;
+        String visible = isHandleBackgroundVisible() ? "Visible" : "Invisible";
+        if (!isHandleTextVisible()) {
+            visible += " / No text";
+        }
+        handleStyleStatus.setText("HVAC icon: " + getHandleWidth() + "x" + getHandleHeight()
+                + " / " + visible);
+    }
+
     private String getBarColor() {
         String color = prefs.getString(HvacTheme.KEY_BAR_COLOR, HvacTheme.DEFAULT_BAR_COLOR);
         int[] parsed = parseColorParts(color);
@@ -635,6 +1067,26 @@ public class MainActivity extends Activity {
 
     private int getBarOpacity() {
         return clamp(prefs.getInt(HvacTheme.KEY_BAR_OPACITY, HvacTheme.DEFAULT_BAR_OPACITY), 0, 100);
+    }
+
+    private int getHandleWidth() {
+        return clamp(prefs.getInt(HvacTheme.KEY_HANDLE_WIDTH, HvacTheme.DEFAULT_HANDLE_SIZE), 56, 640);
+    }
+
+    private int getHandleHeight() {
+        return clamp(prefs.getInt(HvacTheme.KEY_HANDLE_HEIGHT, HvacTheme.DEFAULT_HANDLE_SIZE), 56, 360);
+    }
+
+    private int getHandleRadius() {
+        return clamp(prefs.getInt(HvacTheme.KEY_HANDLE_RADIUS, HvacTheme.DEFAULT_HANDLE_RADIUS), 0, 120);
+    }
+
+    private boolean isHandleBackgroundVisible() {
+        return prefs.getBoolean(HvacTheme.KEY_HANDLE_BACKGROUND_VISIBLE, true);
+    }
+
+    private boolean isHandleTextVisible() {
+        return prefs.getBoolean(HvacTheme.KEY_HANDLE_TEXT_VISIBLE, true);
     }
 
     private TextView makeDialogLabel(String text) {
@@ -649,6 +1101,206 @@ public class MainActivity extends Activity {
         params.setMargins(0, 14, 0, 0);
         label.setLayoutParams(params);
         return label;
+    }
+
+    private TextView makeDarkDialogLabel(String text) {
+        TextView label = makeDialogLabel(text);
+        label.setTextColor(Color.WHITE);
+        return label;
+    }
+
+    private LinearLayout makeStyledDialogPanel(String titleText, String subtitleText) {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(34, 28, 34, 26);
+        panel.setBackground(makeUpdatePanelBackground(0xf2222224, 18, 0xff55f0d8));
+
+        TextView title = new TextView(this);
+        title.setText(titleText);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(28);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        title.setShadowLayer(8f, 0f, 0f, 0xaa000000);
+        panel.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText(subtitleText);
+        subtitle.setTextColor(0xff55f0d8);
+        subtitle.setTextSize(17);
+        subtitle.setTypeface(Typeface.DEFAULT_BOLD);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        subtitleParams.setMargins(0, 8, 0, 18);
+        panel.addView(subtitle, subtitleParams);
+        return panel;
+    }
+
+    private void showStyledDialog(Dialog dialog, View content, int width) {
+        dialog.setContentView(content);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+        }
+        dialog.show();
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            shownWindow.setLayout(width, LinearLayout.LayoutParams.WRAP_CONTENT);
+        }
+    }
+
+    private void showColorPickerDialog(
+            final int[] targetRgb,
+            final EditText hexInput,
+            final SeekBar targetRed,
+            final SeekBar targetGreen,
+            final SeekBar targetBlue,
+            final Runnable targetPreview,
+            final boolean[] targetUpdating) {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel = makeStyledDialogPanel("COLOUR PICKER", "Tap a swatch or tune RGB");
+
+        final int[] working = new int[] {targetRgb[0], targetRgb[1], targetRgb[2]};
+        final boolean[] updating = new boolean[] {false};
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(20, 12, 20, 12);
+
+        final View preview = new View(this);
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                82);
+        previewParams.setMargins(0, 0, 0, 18);
+        layout.addView(preview, previewParams);
+
+        LinearLayout swatches = new LinearLayout(this);
+        swatches.setGravity(Gravity.CENTER);
+        final int[] swatchColors = new int[] {
+                0x181a20, 0x212120, 0x2f3440, 0x101418,
+                0x334155, 0x14532d, 0x7f1d1d, 0x4c1d95
+        };
+        for (int i = 0; i < swatchColors.length; i++) {
+            final int color = swatchColors[i];
+            TextView swatch = new TextView(this);
+            swatch.setText("");
+            swatch.setBackground(makePreviewBackground(0xff000000 | color, 8, 0x99ffffff));
+            LinearLayout.LayoutParams swatchParams = new LinearLayout.LayoutParams(54, 54);
+            swatchParams.setMargins(6, 0, 6, 14);
+            swatches.addView(swatch, swatchParams);
+            swatch.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    working[0] = (color >> 16) & 0xff;
+                    working[1] = (color >> 8) & 0xff;
+                    working[2] = color & 0xff;
+                    updating[0] = true;
+                    ((SeekBar) layout.findViewWithTag("picker_red")).setProgress(working[0]);
+                    ((SeekBar) layout.findViewWithTag("picker_green")).setProgress(working[1]);
+                    ((SeekBar) layout.findViewWithTag("picker_blue")).setProgress(working[2]);
+                    updateColorPickerPreview(preview, working);
+                    updating[0] = false;
+                }
+            });
+        }
+        layout.addView(swatches);
+
+        final TextView redLabel = makeDarkDialogLabel("");
+        final SeekBar red = makeColorSeekBar(working[0]);
+        red.setTag("picker_red");
+        layout.addView(redLabel);
+        layout.addView(red);
+
+        final TextView greenLabel = makeDarkDialogLabel("");
+        final SeekBar green = makeColorSeekBar(working[1]);
+        green.setTag("picker_green");
+        layout.addView(greenLabel);
+        layout.addView(green);
+
+        final TextView blueLabel = makeDarkDialogLabel("");
+        final SeekBar blue = makeColorSeekBar(working[2]);
+        blue.setTag("picker_blue");
+        layout.addView(blueLabel);
+        layout.addView(blue);
+
+        final Runnable updateLabels = new Runnable() {
+            @Override
+            public void run() {
+                redLabel.setText("Red: " + working[0]);
+                greenLabel.setText("Green: " + working[1]);
+                blueLabel.setText("Blue: " + working[2]);
+                updateColorPickerPreview(preview, working);
+            }
+        };
+        updateLabels.run();
+
+        SeekBar.OnSeekBarChangeListener pickerListener = new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (updating[0]) return;
+                working[0] = red.getProgress();
+                working[1] = green.getProgress();
+                working[2] = blue.getProgress();
+                updateLabels.run();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        };
+        red.setOnSeekBarChangeListener(pickerListener);
+        green.setOnSeekBarChangeListener(pickerListener);
+        blue.setOnSeekBarChangeListener(pickerListener);
+
+        panel.addView(layout);
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(Gravity.CENTER);
+        Button cancel = makeUpdateDialogButton("Cancel");
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        Button apply = makeUpdateDialogButton("Apply");
+        apply.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                targetRgb[0] = working[0];
+                targetRgb[1] = working[1];
+                targetRgb[2] = working[2];
+                targetUpdating[0] = true;
+                hexInput.setText(formatHex(targetRgb[0], targetRgb[1], targetRgb[2]));
+                hexInput.setSelection(hexInput.getText().length());
+                targetRed.setProgress(targetRgb[0]);
+                targetGreen.setProgress(targetRgb[1]);
+                targetBlue.setProgress(targetRgb[2]);
+                targetPreview.run();
+                targetUpdating[0] = false;
+                dialog.dismiss();
+            }
+        });
+        buttons.addView(cancel);
+        buttons.addView(apply);
+        panel.addView(buttons);
+        showStyledDialog(dialog, panel, 680);
+    }
+
+    private void updateColorPickerPreview(View preview, int[] rgb) {
+        preview.setBackground(makePreviewBackground(
+                composeColor(rgb[0], rgb[1], rgb[2], 100),
+                10,
+                0x99ffffff));
     }
 
     private SeekBar makeColorSeekBar(int value) {
@@ -672,6 +1324,14 @@ public class MainActivity extends Activity {
                 | (clamp(red, 0, 255) << 16)
                 | (clamp(green, 0, 255) << 8)
                 | clamp(blue, 0, 255);
+    }
+
+    private int composeColorFromHex(String hex, int opacity) {
+        int[] parts = parseColorParts(hex);
+        if (parts == null) {
+            parts = parseColorParts(HvacTheme.DEFAULT_BAR_COLOR);
+        }
+        return composeColor(parts[0], parts[1], parts[2], opacity);
     }
 
     private int[] parseColorParts(String value) {

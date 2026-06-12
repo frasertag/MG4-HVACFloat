@@ -10,6 +10,13 @@ final class HvacTheme {
     static final String KEY_BAR_OPACITY = "bar_opacity";
     static final String DEFAULT_BAR_COLOR = "#181A20";
     static final int DEFAULT_BAR_OPACITY = 87;
+    static final String KEY_HANDLE_WIDTH = "handle_width";
+    static final String KEY_HANDLE_HEIGHT = "handle_height";
+    static final String KEY_HANDLE_RADIUS = "handle_radius";
+    static final String KEY_HANDLE_BACKGROUND_VISIBLE = "handle_background_visible";
+    static final String KEY_HANDLE_TEXT_VISIBLE = "handle_text_visible";
+    static final int DEFAULT_HANDLE_SIZE = 92;
+    static final int DEFAULT_HANDLE_RADIUS = 18;
     static final String KEY_OVERLAY_MODE = "overlay_mode";
     static final String OVERLAY_MODE_BAR = "bar";
     static final String OVERLAY_MODE_FACTORY_HVAC = "factory_hvac";

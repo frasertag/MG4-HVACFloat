@@ -40,6 +40,7 @@ public class OverlayService extends Service {
     private static final String START_ACTIVITY_INTERFACE = "com.android.systemui.IStartActivityService";
     private static final int TRANSACTION_START_HVAC = IBinder.FIRST_CALL_TRANSACTION;
     private static final int TRANSACTION_STOP_HVAC = IBinder.FIRST_CALL_TRANSACTION + 1;
+    private static final long FACTORY_HVAC_ASSUMED_OPEN_MS = 5000;
     private static final int BAR_HEIGHT = 92;
     private static final int ICON_BAR_HEIGHT = 104;
     private static final int HANDLE_SIZE = BAR_HEIGHT;
@@ -64,6 +65,14 @@ public class OverlayService extends Service {
     private static boolean overlayActive;
     private boolean factoryHvacOpen;
     private boolean factoryHvacBinding;
+    private long factoryHvacOpenedAtMs;
+    private final Runnable forgetFactoryHvacOpenRunnable = new Runnable() {
+        @Override
+        public void run() {
+            factoryHvacOpen = false;
+            factoryHvacOpenedAtMs = 0;
+        }
+    };
     private final Runnable longPressRunnable = new Runnable() {
         @Override
         public void run() {
@@ -97,7 +106,16 @@ public class OverlayService extends Service {
             }
             if (intent != null && intent.getBooleanExtra(EXTRA_REFRESH_STYLE, false)) {
                 loadTheme();
-                if (!hidden && !isFactoryHvacMode()) {
+                if (hidden || isFactoryHvacMode()) {
+                    overlayView.removeAllViews();
+                    populateCollapsedBar();
+                    overlayParams.width = handleWidth();
+                    overlayParams.height = handleHeight();
+                    try {
+                        windowManager.updateViewLayout(overlayView, overlayParams);
+                    } catch (Throwable ignored) {
+                    }
+                } else {
                     populateExpandedShell();
                     try {
                         windowManager.updateViewLayout(overlayView, overlayParams);
@@ -136,8 +154,8 @@ public class OverlayService extends Service {
         }
 
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                startHidden ? HANDLE_SIZE : WindowManager.LayoutParams.WRAP_CONTENT,
-                startHidden ? HANDLE_SIZE : expandedBarHeight(),
+                startHidden ? handleWidth() : WindowManager.LayoutParams.WRAP_CONTENT,
+                startHidden ? handleHeight() : expandedBarHeight(),
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
@@ -214,6 +232,45 @@ public class OverlayService extends Service {
 
     private int expandedBarHeight() {
         return HvacTheme.ICON_SET_1.equals(theme) ? ICON_BAR_HEIGHT : BAR_HEIGHT;
+    }
+
+    private int handleWidth() {
+        if (prefs == null) {
+            prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
+        }
+        return clamp(prefs.getInt(HvacTheme.KEY_HANDLE_WIDTH, HvacTheme.DEFAULT_HANDLE_SIZE), 56, 640);
+    }
+
+    private int handleHeight() {
+        if (prefs == null) {
+            prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
+        }
+        return clamp(prefs.getInt(HvacTheme.KEY_HANDLE_HEIGHT, HvacTheme.DEFAULT_HANDLE_SIZE), 56, 360);
+    }
+
+    private int handleRadius() {
+        if (prefs == null) {
+            prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
+        }
+        return clamp(prefs.getInt(HvacTheme.KEY_HANDLE_RADIUS, HvacTheme.DEFAULT_HANDLE_RADIUS), 0, 120);
+    }
+
+    private boolean handleBackgroundVisible() {
+        if (prefs == null) {
+            prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
+        }
+        return prefs.getBoolean(HvacTheme.KEY_HANDLE_BACKGROUND_VISIBLE, true);
+    }
+
+    private boolean handleTextVisible() {
+        if (prefs == null) {
+            prefs = getSharedPreferences(HvacTheme.PREFS, MODE_PRIVATE);
+        }
+        return prefs.getBoolean(HvacTheme.KEY_HANDLE_TEXT_VISIBLE, true);
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     private void savePosition() {
@@ -621,12 +678,12 @@ public class OverlayService extends Service {
             releaseHvacController();
             hidden = true;
             populateCollapsedBar();
-            overlayParams.width = HANDLE_SIZE;
-            overlayParams.height = HANDLE_SIZE;
+            overlayParams.width = handleWidth();
+            overlayParams.height = handleHeight();
         } else if (hidden) {
             populateCollapsedBar();
-            overlayParams.width = HANDLE_SIZE;
-            overlayParams.height = HANDLE_SIZE;
+            overlayParams.width = handleWidth();
+            overlayParams.height = handleHeight();
         } else {
             populateExpandedShell();
             populateExpandedBar();
@@ -646,15 +703,15 @@ public class OverlayService extends Service {
             return;
         }
         if (!hidden || overlayView.getChildCount() != 1
-                || overlayParams.width != HANDLE_SIZE
-                || overlayParams.height != HANDLE_SIZE) {
+                || overlayParams.width != handleWidth()
+                || overlayParams.height != handleHeight()) {
             overlayView.removeAllViews();
             releaseHvacController();
             hidden = true;
             populateCollapsedBar();
             overlayParams.gravity = Gravity.TOP | Gravity.LEFT;
-            overlayParams.width = HANDLE_SIZE;
-            overlayParams.height = HANDLE_SIZE;
+            overlayParams.width = handleWidth();
+            overlayParams.height = handleHeight();
             try {
                 windowManager.updateViewLayout(overlayView, overlayParams);
                 savePosition();
@@ -672,8 +729,8 @@ public class OverlayService extends Service {
         overlayView.removeAllViews();
         populateCollapsedBar();
         overlayParams.gravity = Gravity.TOP | Gravity.LEFT;
-        overlayParams.width = HANDLE_SIZE;
-        overlayParams.height = HANDLE_SIZE;
+        overlayParams.width = handleWidth();
+        overlayParams.height = handleHeight();
         try {
             windowManager.updateViewLayout(overlayView, overlayParams);
             savePosition();
@@ -683,9 +740,14 @@ public class OverlayService extends Service {
 
     private void populateCollapsedBar() {
         overlayView.setPadding(8, 8, 8, 8);
-        overlayView.setBackground(makeBackground(0xcc181a20, 18, 0x66ffffff));
-        TextView handle = makeLabel("HVAC");
+        if (handleBackgroundVisible()) {
+            overlayView.setBackground(makeBackground(configuredBarBackgroundColor(), handleRadius(), 0x66ffffff));
+        } else {
+            overlayView.setBackground(makeBackground(0x00000000, handleRadius(), 0x00000000));
+        }
+        TextView handle = makeLabel(handleTextVisible() ? "HVAC" : "");
         handle.setTextSize(14);
+        handle.setTextColor(handleTextVisible() ? Color.WHITE : Color.TRANSPARENT);
         handle.setBackgroundColor(Color.TRANSPARENT);
         handle.setOnTouchListener(new DragTouchListener());
         overlayView.addView(handle, new LinearLayout.LayoutParams(
@@ -718,7 +780,7 @@ public class OverlayService extends Service {
         if (factoryHvacBinding) {
             return;
         }
-        final boolean open = !factoryHvacOpen;
+        final boolean open = !isFactoryHvacAssumedOpen();
         Intent intent = new Intent();
         intent.setAction(SYSTEMUI_ACTION);
         intent.setComponent(new ComponentName(SYSTEMUI_PACKAGE, SYSTEMUI_SERVICE));
@@ -733,6 +795,19 @@ public class OverlayService extends Service {
             factoryHvacBinding = false;
             Toast.makeText(this, "Factory HVAC unavailable", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private boolean isFactoryHvacAssumedOpen() {
+        if (!factoryHvacOpen) {
+            return false;
+        }
+        long age = System.currentTimeMillis() - factoryHvacOpenedAtMs;
+        if (age > FACTORY_HVAC_ASSUMED_OPEN_MS) {
+            factoryHvacOpen = false;
+            factoryHvacOpenedAtMs = 0;
+            return false;
+        }
+        return true;
     }
 
     private boolean callFactoryHvac(IBinder service, boolean open) {
@@ -763,6 +838,13 @@ public class OverlayService extends Service {
             boolean ok = callFactoryHvac(service, open);
             if (ok) {
                 factoryHvacOpen = open;
+                handler.removeCallbacks(forgetFactoryHvacOpenRunnable);
+                if (open) {
+                    factoryHvacOpenedAtMs = System.currentTimeMillis();
+                    handler.postDelayed(forgetFactoryHvacOpenRunnable, FACTORY_HVAC_ASSUMED_OPEN_MS);
+                } else {
+                    factoryHvacOpenedAtMs = 0;
+                }
                 Toast.makeText(
                         OverlayService.this,
                         open ? "Factory HVAC opened" : "Factory HVAC closed",
@@ -860,6 +942,7 @@ public class OverlayService extends Service {
     public void onDestroy() {
         overlayActive = false;
         handler.removeCallbacks(longPressRunnable);
+        handler.removeCallbacks(forgetFactoryHvacOpenRunnable);
         if (hvacController != null) {
             hvacController.release();
             hvacController = null;
